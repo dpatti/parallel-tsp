@@ -107,7 +107,7 @@ for iteration in range(args.iter):
         if not shortest or ant.length < shortest_len():
             shortest = ant.path
             shortest_iter = iteration
-        print "Iteration %d: ant %d finished with path %d" % (iteration, i, ant.length)
+        # print "Iteration %d: ant %d finished with path %d" % (iteration, i, ant.length)
     # Global reduction
     size = shortest_len()
     for i in range(args.nodes):
