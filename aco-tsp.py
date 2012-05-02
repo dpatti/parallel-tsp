@@ -50,7 +50,7 @@ parameters = dotdict()
 
 INITIAL_PHEROMONE = parameters.initial_pheromone or 0.1   # Parameter: Initial pheromone trail value
 ALPHA             = parameters.alpha or 1                 # Parameter: Likelihood of ants to follow pheromone trails (larger value == more likely)
-BETA              = parameters.beta or 1                  # Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
+BETA              = parameters.beta or 5                  # Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
 LOCALDECAY        = parameters.local_decay or 0.2         # Parameter: Governs local trail decay rate [0, 1]
 LOCALUPDATE       = parameters.local_update or 0.4        # Parameter: Amount of pheromone to reinforce local trail update by
 GLOBALDECAY       = parameters.global_decay or 0.2        # Parameter: Governs global trail decay rate [0, 1]
@@ -75,6 +75,7 @@ for i in range(args.nodes):
 pheromone = [[0.1 for i in range(args.nodes)] for j in range(args.nodes)]
 
 shortest = None
+shortest_iter = 0
 def shortest_len():
     return sum(weights[shortest[i]][shortest[i+1]] for i in range(len(shortest[:-1])))
 
@@ -105,6 +106,7 @@ for iteration in range(args.iter):
         ant.walk(ant.path[0])
         if not shortest or ant.length < shortest_len():
             shortest = ant.path
+            shortest_iter = iteration
         print "Iteration %d: ant %d finished with path %d" % (iteration, i, ant.length)
     # Global reduction
     size = shortest_len()
@@ -121,4 +123,5 @@ for iteration in range(args.iter):
     # print_phero()
 
     print "Shortest path: %d" % shortest_len()
+print "Shortest path reached on iteration %d" % shortest_iter
 
