@@ -20,11 +20,12 @@ ant_t *ant_allocate(){
                          graph_size * sizeof(nodeid_t));   // size of path
 }
 
-void ant_reset(ant_t *ant, int start) {
+ant_t *ant_reset(ant_t *ant, int start) {
   ant->tour_length = 0;
   ant->current_node = start;
   ant->visited_nodes = 0;
   memset(ant->path, -1, graph_size * sizeof(nodeid_t));
+  return ant;
 }
 
 void ant_choose(ant_t *ant) {

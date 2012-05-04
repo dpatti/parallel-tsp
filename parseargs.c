@@ -1,9 +1,6 @@
-#include <stdlib.h>
-#include <string.h>
+#include "aco.h"
 
 //graph size, #ants, distribution method
-int graph_size = 0;
-int ant_count = 0;
 
 void parseargs(int argc, char *argv[]){
 

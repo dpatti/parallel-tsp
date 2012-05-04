@@ -19,6 +19,8 @@
 #define LOCALUPDATE       0.4   // Parameter: Amount of pheromone to reinforce local trail update by
 #define GLOBALDECAY       0.2   // Parameter: Governs global trail decay rate [0, 1]
 
+#define DEFAULT_GRAPH 16
+
 typedef int nodeid_t;
 
 typedef struct {
@@ -35,12 +37,15 @@ typedef struct {
 
 // Globals
 int mpi_rank, mpi_size;
-int graph_size;
+edge_t **graph_edges;
 float *edge_chances;
 int completed_ants;
+// Arguments
+int graph_size;
+int ant_count;
 
 // Hash functions
-unsigned elf_hash (void *key, int len);
+unsigned elf_hash(void *key, int len);
 unsigned edge_hash(int a, int b);
 
 // Graph functions
@@ -54,7 +59,7 @@ int get_rank(int node_id);
 
 // Ant functions
 ant_t *ant_allocate();
-void ant_reset();
+ant_t *ant_reset();
 void ant_choose();
 void ant_finish();
 void ant_send(ant_t *ant, int next);
@@ -62,3 +67,18 @@ void ant_send(ant_t *ant, int next);
 // MPI Communication
 void comm_next();
 void comm_send();
+
+// Queue implementation
+typedef struct queue_node {
+  struct queue_node *next;
+  ant_t *ant;
+} queue_node_t;
+typedef struct {
+  queue_node_t *HEAD;
+  int size;
+} ant_queue_t;
+typedef enum {spare_queue, process_queue, receive_queue, send_queue, num_queues} queue_type;
+void queue_init();
+int queue_size(queue_type type);
+void queue_push(queue_type type, ant_t *ant);
+ant_t *queue_pop(queue_type type);
