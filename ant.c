@@ -46,8 +46,7 @@ void ant_choose(ant_t *ant) {
     if (i == ant->current_node || ant->path[i] >= 0)
       continue;
 
-#define pheromone 1
-    chance = pow(pheromone, ALPHA) / pow(edge_hash(ant->current_node, i), BETA);
+    chance = pow(graph_edges[i]->pheromone, ALPHA) / pow(edge_hash(ant->current_node, i), BETA);
     edge_chances[i] = chance;
     total_chance += chance;
   }
@@ -64,7 +63,7 @@ void ant_choose(ant_t *ant) {
 
 void ant_finish() {
   completed_ants++;
-  // maybe store ant
+  // push to new queue or something to keep ant safe
 }
 
 void ant_send(ant_t *ant, int next) {
@@ -76,6 +75,7 @@ void ant_send(ant_t *ant, int next) {
 
   dest_rank = get_rank(next);
   if (dest_rank == mpi_rank)
+    // XXX Maybe push to queue instead
     ant_choose(ant);
   else
     comm_send(ant, dest_rank);
