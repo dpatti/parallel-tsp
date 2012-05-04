@@ -1,5 +1,7 @@
 #include "aco.h"
 
+void parseargs(int argc, char *argv[]);
+
 int main(int argc, char *argv[]) {
   int i, iterations=0;
 
@@ -8,6 +10,7 @@ int main(int argc, char *argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
   // Parse command line arguments
+	parseargs(argc, argv);
 
   // Initialization of this core
   srand(time(NULL));
