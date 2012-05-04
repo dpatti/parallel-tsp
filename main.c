@@ -3,7 +3,7 @@
 void parseargs(int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
-  int i, iter, iterations=0;
+  int i, iter;
   int local_nodes, local_ants;
 
   MPI_Init(&argc, &argv);
@@ -13,7 +13,9 @@ int main(int argc, char *argv[]) {
   // Parse command line arguments
   graph_size = DEFAULT_GRAPH;
   ant_count = DEFAULT_GRAPH;
+	iterations = 20;
 	parseargs(argc, argv);
+
 
   // Initialization of this core
   srand(time(NULL));

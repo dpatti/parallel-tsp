@@ -43,6 +43,7 @@ int completed_ants;
 // Arguments
 int graph_size;
 int ant_count;
+int iterations;
 
 // Hash functions
 unsigned elf_hash(void *key, int len);
