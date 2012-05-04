@@ -1,11 +1,12 @@
 #include "aco.h"
 
-// After every ant completed, do the following:
-//  * Check for any incoming ants and move to queue
-//  * If queue not empty, process and then loop
-//  * If nothing to do, block until ant or finish signal received
 void comm_next() {
+  // Loop until we know we aren't receing any more ants
+  //  (i.e., ants_seen = ants_total * local_cores)
 
+  // Check for received ants, and move any to process queue
+  // If the process queue is not empty, process one and loop
+  // If it is empty, MPI_Wait() until something comes in and loop
 }
 
 
