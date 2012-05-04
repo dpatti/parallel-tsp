@@ -34,6 +34,7 @@ void ant_choose(ant_t *ant) {
 
   if (ant == NULL)
     return;
+  printf("ant_choose at %d\n", ant->visited_nodes);
 
   // Check if ant is done
   if (ant->visited_nodes == graph_size)
@@ -43,8 +44,10 @@ void ant_choose(ant_t *ant) {
   for (i = 0; i < graph_size; i++) {
     // Don't send ant to the node it is currently on
     // or if it visited already
-    if (i == ant->current_node || ant->path[i] >= 0)
+    if (i == ant->current_node || ant->path[i] >= 0) {
+      edge_chances[i] = 0;
       continue;
+    }
 
     chance = pow(graph_edges[i]->pheromone, ALPHA) / pow(edge_hash(ant->current_node, i), BETA);
     edge_chances[i] = chance;
@@ -57,17 +60,22 @@ void ant_choose(ant_t *ant) {
     if (chance < 0) {
       // This is the edge
       ant_send(ant, i);
+      break;
     }
   }
 }
 
-void ant_finish() {
+void ant_finish(ant_t *ant) {
+  printf("ant_finish\n");
+  exit(0);
   completed_ants++;
   // push to new queue or something to keep ant safe
+  queue_push(finished_queue, ant);
 }
 
 void ant_send(ant_t *ant, int next) {
   int dest_rank;
+  printf("ant_send to %d\n", next);
 
   ant->path[ant->current_node] = next;
   ant->current_node = next;
@@ -79,4 +87,11 @@ void ant_send(ant_t *ant, int next) {
     ant_choose(ant);
   else
     comm_send(ant, dest_rank);
+}
+
+void ant_retour(ant_t *ant) {
+  int i;
+  int local_nodes = graph_size / mpi_size + (mpi_rank < graph_size % mpi_size);
+  for (i = 0; i < local_nodes; i++)
+    graph_edges[i][get_node_id(ant->path[i])].pheromone += GLOBALDECAY / ant->tour_length;
 }

@@ -60,10 +60,11 @@ int get_rank(int node_id);
 
 // Ant functions
 ant_t *ant_allocate();
-ant_t *ant_reset();
-void ant_choose();
+ant_t *ant_reset(ant_t *ant, int start);
+void ant_choose(ant_t *ant);
 void ant_finish();
 void ant_send(ant_t *ant, int next);
+void ant_retour(ant_t *ant);
 
 // MPI Communication
 void comm_next();
@@ -78,8 +79,9 @@ typedef struct {
   queue_node_t *HEAD;
   int size;
 } ant_queue_t;
-typedef enum {spare_queue, process_queue, receive_queue, send_queue, num_queues} queue_type;
+typedef enum {spare_queue, process_queue, receive_queue, send_queue, finished_queue, num_queues} queue_type;
 void queue_init();
 int queue_size(queue_type type);
 void queue_push(queue_type type, ant_t *ant);
 ant_t *queue_pop(queue_type type);
+ant_t *queue_peek(queue_type type, int index);

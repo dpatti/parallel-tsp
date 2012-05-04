@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
 
   // Parse command line arguments
   graph_size = DEFAULT_GRAPH;
-  ant_count = DEFAULT_GRAPH;
+  ant_count = 1; // DEFAULT_GRAPH;
 	iterations = 20;
 	parseargs(argc, argv);
 
@@ -31,6 +31,7 @@ int main(int argc, char *argv[]) {
 
   // Start iterations
   for (iter = 0; iter < iterations; iter++) {
+    printf("Iteration %d\n", iter);
     // Reset your state
     completed_ants = 0;
     // Setup initial ant queue
@@ -38,18 +39,41 @@ int main(int argc, char *argv[]) {
       queue_push(process_queue, ant_reset(queue_pop(spare_queue), i));
 
     // Do entire ACO algorithm
+    printf("Starting ACO\n");
     comm_next();
+    printf("Ending ACO\n");
 
     // All ranks finished
     // Find ant(s) with lowest tour length
+    int tour = -1;
+    int temp;
+    printf("%d\n", queue_size(finished_queue));
+    for (i = 0; i < ant_count; i++) {
+      temp = queue_peek(finished_queue, i)->tour_length;
+      if (tour == -1 || temp < tour) {
+        tour = temp;
+      }
+    }
+    printf("%d\n", tour);
     // Reduce to find the lowest tour length of this iteration
     // Count ants on our core that match winning length
     // Reduce sum this count
     // Post receives for (n - m) ants where n is the total count and m is how
     //   many you are sending out 
     // After all receives done, do pheromone reduction of each local edge
+    int j;
+    for (i = 0; i < local_nodes; i++) {
+      for (j = 0; j < graph_size; j++) {
+        graph_edges[i][j].pheromone *= (1 - GLOBALDECAY);
+      }
+    }
     // Then, iterate over each ant
     //   Add to pheromone levels
+    for (i = 0; i < ant_count; i++) {
+      if (queue_peek(finished_queue, i)->tour_length == tour) {
+        ant_retour(queue_peek(finished_queue, i));
+      }
+    }
   }
 
   // Cleanup
