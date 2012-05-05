@@ -16,8 +16,7 @@
 // free(ant);
 
 ant_t *ant_allocate(){
-  return (ant_t*) malloc(         1 * sizeof(ant_t) +          // size of ant struct
-                         graph_size * sizeof(nodeid_t));   // size of path
+  return (ant_t*) malloc(ANT_T_SIZE);
 }
 
 ant_t *ant_reset(ant_t *ant, int start) {

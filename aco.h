@@ -20,8 +20,9 @@
 #define LOCALUPDATE       0.4   // Parameter: Amount of pheromone to reinforce local trail update by
 #define GLOBALDECAY       0.2   // Parameter: Governs global trail decay rate [0, 1]
 
-#define DEFAULT_GRAPH 16
+#define DEFAULT_GRAPH     16
 
+#define ANT_T_SIZE        (sizeof(ant_t) + graph_size * sizeof(nodeid_t))
 #define debug(...) printf(__VA_ARGS__)
 
 typedef int nodeid_t;

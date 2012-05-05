@@ -7,9 +7,9 @@ int main(int argc, char *argv[]) {
   int local_nodes, local_ants; // XXX: Best way to pass these? global?
   int best_tour=0, best_iter=0, best_ct=0;
 
-  // MPI_Init(&argc, &argv);
-  // MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-  // MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
   mpi_rank = 0; mpi_size = 1;
 
   // Parse command line arguments
@@ -17,7 +17,6 @@ int main(int argc, char *argv[]) {
   ant_count = 100; // DEFAULT_GRAPH;
 	iterations = 20;
 	parseargs(argc, argv);
-
 
   // Initialization of this core
   srand(time(NULL));
@@ -40,8 +39,10 @@ int main(int argc, char *argv[]) {
     while (queue_size(finished_queue))
       queue_push(spare_queue, queue_pop(finished_queue));
     for (i = 0; i < local_ants; i++)
-      // XXX: the i below only works for one core
-      queue_push(process_queue, ant_reset(queue_pop(spare_queue), i % local_nodes));
+      queue_push(process_queue,
+          ant_reset(
+            queue_pop(spare_queue),
+            get_node_id(i % local_nodes)));
 
     // Do entire ACO algorithm
     // debug("Starting ACO\n");
@@ -65,19 +66,69 @@ int main(int argc, char *argv[]) {
       ant_iter = ant_iter->next;
     }
     assert(tour > 0);
+
     // Reduce to find the lowest tour length of this iteration
+    MPI_Allreduce(&tour, MPI_IN_PLACE, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     // Count ants on our core that match winning length
+    int count = 0, global_count;
+    ant_t *buffer;
+    for (i = 0; i < local_ants; i++) {
+      buffer = queue_pop(finished_queue);
+      if (buffer->tour_length == tour) {
+        queue_push(send_queue, buffer);
+        count++;
+      } else {
+        queue_push(finished_queue, buffer);
+      }
+    }
     // Reduce sum this count
+    MPI_Allreduce(&count, &global_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    global_count -= count;
+
     // Post receives for (n - m) ants where n is the total count and m is how
     //   many you are sending out 
-    // After all receives done, iterate over each ant
-    //   Add to pheromone levels
+    MPI_Request *reqs = (MPI_Request*) malloc(global_count * sizeof(MPI_Request));
+    MPI_Request empty;
+    for (i = 0; i < global_count; i++) {
+      buffer = queue_pop(spare_queue);
+      MPI_Irecv(buffer, ANT_T_SIZE, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &reqs[i]);
+      queue_push(receive_queue, buffer);
+    }
+
+    // Send your best ants, if any to all cores
     ant_iter = queue_peek(finished_queue);
     while (ant_iter != NULL) {
       if (ant_iter->tour_length == tour)
-        ant_retour(ant_iter);
+        count++;
       ant_iter = ant_iter->next;
     }
+    for (i = 0; i < count; i++) {
+      buffer = queue_pop(send_queue);
+      for (j = 0; j < mpi_size; j++) {
+        MPI_Isend(buffer, ANT_T_SIZE, MPI_BYTE, j, 0, MPI_COMM_WORLD, &empty);
+      }
+      // We need to process these later
+      queue_push(receive_queue, buffer);
+    }
+
+    // After all receives done, iterate over each ant
+    for (i = 0; i < global_count; i++) {
+      MPI_Wait(&reqs[i], MPI_STATUS_IGNORE);
+      buffer = queue_pop(receive_queue);
+      ant_retour(buffer);
+      queue_push(spare_queue, buffer);
+    }
+
+    // Process the rest on the queue (ours)
+    while (queue_size(receive_queue)) {
+      buffer = queue_pop(receive_queue);
+      ant_retour(buffer);
+      queue_push(spare_queue, buffer);
+    }
+
+    // Wait for the others
+    MPI_Barrier(MPI_COMM_WORLD);
+
     printf("Best ant for iteration %d: %d\n", iter, tour);
     if (!best_iter || tour < best_tour) {
       best_tour = tour;
@@ -96,7 +147,7 @@ int main(int argc, char *argv[]) {
       free(queue_pop(i));
   graph_destroy(graph_edges, local_nodes);
 
-  // MPI_Finalize();
+  MPI_Finalize();
   return 0;
 }
 
