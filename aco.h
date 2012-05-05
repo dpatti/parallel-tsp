@@ -14,7 +14,7 @@
 #endif
 #define INITIAL_PHEROMONE 0.1   // Parameter: Initial pheromone trail value
 #define ALPHA             1     // Parameter: Likelihood of ants to follow pheromone trails (larger value == more likely)
-#define BETA              5     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
+#define BETA              2     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
 #define LOCALDECAY        0.2   // Parameter: Governs local trail decay rate [0, 1]
 #define LOCALUPDATE       0.4   // Parameter: Amount of pheromone to reinforce local trail update by
 #define GLOBALDECAY       0.2   // Parameter: Governs global trail decay rate [0, 1]

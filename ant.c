@@ -63,7 +63,8 @@ void ant_choose(ant_t *ant) {
     total_chance += chance;
   }
 
-  chance = total_chance * rand() / RAND_MAX;
+  int rng = rand();
+  chance = total_chance * rng / RAND_MAX;
   // printf("chance: %.12f / %.12f\n", chance, total_chance);
   for (i = 0; i < graph_size; i++) {
     chance -= edge_chances[i];
@@ -73,7 +74,13 @@ void ant_choose(ant_t *ant) {
       return;
     }
   }
-  // printf("Dead ant, that's bad\n");
+  printf("--------------------------------------------------------------------\n");
+  printf("Dead ant, that's bad\n");
+  printf("Random roll: %d / %d\n", rng, RAND_MAX);
+  printf("Total chance: %0.30f\n", total_chance);
+  printf("Chance left: %0.30f\n", chance);
+  for (i = 0; i < graph_size; i++)
+    printf("%.12f : %.12f\n", edge_chances[i], graph_edges[ant->current_node][i].pheromone);
   exit(1);
 }
 

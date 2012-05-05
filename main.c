@@ -5,6 +5,7 @@ void parseargs(int argc, char *argv[]);
 int main(int argc, char *argv[]) {
   int i, iter;
   int local_nodes, local_ants;
+  int best_tour, best_iter=0, best_ct=0;
 
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -74,7 +75,16 @@ int main(int argc, char *argv[]) {
       if (queue_peek(finished_queue, i)->tour_length == tour)
         ant_retour(queue_peek(finished_queue, i));
     printf("Best ant for iteration %d: %d\n", iter, tour);
+    if (!best_iter || tour < best_tour) {
+      best_tour = tour;
+      best_iter = iter;
+      best_ct = 1;
+    } else if (tour == best_tour) {
+      best_ct++;
+    }
   }
+
+  printf("Best solution was %d found %d times; first on tour %d\n", best_tour, best_ct, best_iter);
 
   // Cleanup
   for (i = 0; i < num_queues; i++)
