@@ -25,6 +25,7 @@ typedef int nodeid_t;
 
 typedef struct {
   int tour_length;
+  int first_node;
   int current_node;
   int visited_nodes;
   nodeid_t path[];
@@ -50,8 +51,8 @@ unsigned elf_hash(void *key, int len);
 unsigned edge_hash(int a, int b);
 
 // Graph functions
-edge_t **allocate_graph(int local_nodes, int total_nodes);
-void destroy_graph(edge_t **mem, int local_nodes);
+edge_t **graph_allocate(int local_nodes, int total_nodes);
+void graph_destroy(edge_t **mem, int local_nodes);
 
 // Round Robin functions
 int get_local_index(int node_id);

@@ -14,13 +14,13 @@ int queue_size(queue_type type) {
 }
 
 void queue_push(queue_type type, ant_t *ant) {
-  printf("queue_push\n");
+  // printf("queue_push[%d] (%d)\n", type, sizes[type]+1);
   queues[type][sizes[type]] = ant;
   sizes[type]++;
 }
 
 ant_t *queue_pop(queue_type type) {
-  printf("queue_pop\n");
+  // printf("queue_pop[%d] (%d)\n", type, sizes[type]-1);
   sizes[type]--;
   int i;
   ant_t *pop;
@@ -31,6 +31,6 @@ ant_t *queue_pop(queue_type type) {
 }
 
 ant_t *queue_peek(queue_type type, int index) {
-  printf("queue_peek\n");
+  // printf("queue_peek\n");
   return queues[type][index];
 }

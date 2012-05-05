@@ -10,6 +10,7 @@ void comm_next() {
 
   int local_nodes = graph_size / mpi_size + (mpi_rank < graph_size % mpi_size);
   while (completed_ants < ant_count * local_nodes) {
+    // printf("Waiting for %d ants; %d done\n", ant_count * local_nodes, completed_ants);
     ant_choose(queue_pop(process_queue));
   }
 }

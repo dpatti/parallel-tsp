@@ -12,17 +12,22 @@
 //   return a;
 // }
 
-edge_t **allocate_graph(int local_nodes, int total_nodes) {
+edge_t **graph_allocate(int local_nodes, int total_nodes) {
   edge_t **mem;
-  int i;
+  int i, j;
 
   mem = (edge_t**) malloc(local_nodes * sizeof(edge_t*));
-  for (i = 0; i < local_nodes; i++)
+  for (i = 0; i < local_nodes; i++) {
     mem[i] = (edge_t*) malloc(total_nodes * sizeof(edge_t));
+    for (j = 0; j < total_nodes; j++) {
+      mem[i][j].pheromone = INITIAL_PHEROMONE;
+    }
+  }
+
   return mem;
 }
 
-void destroy_graph(edge_t **mem, int local_nodes) {
+void graph_destroy(edge_t **mem, int local_nodes) {
   int i;
   for (i = 0; i < local_nodes; i++)
     free(mem[i]);
@@ -40,5 +45,5 @@ int get_node_id(int local_index) {
 }
 // Global vertex identifier to MPI rank
 int get_rank(int node_id) {
-  return node_id % graph_size;
+  return node_id % mpi_size;
 }
