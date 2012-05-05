@@ -30,8 +30,8 @@ ant_t *ant_reset(ant_t *ant, int start) {
 }
 
 void ant_choose(ant_t *ant) {
-  int i;
-  float chance, total_chance=0;
+  int i, last_edge=0;
+  phero_t chance, total_chance=0;
 
   if (ant == NULL)
     return;
@@ -57,6 +57,7 @@ void ant_choose(ant_t *ant) {
       continue;
     }
 
+    last_edge = i;
     chance = pow(graph_edges[ant->current_node][i].pheromone, ALPHA) / pow(edge_hash(ant->current_node, i), BETA);
     // printf("%d: %.20f %f, %d\n", i, chance, graph_edges[ant->current_node][i].pheromone, edge_hash(ant->current_node, i));
     edge_chances[i] = chance;
@@ -64,7 +65,7 @@ void ant_choose(ant_t *ant) {
   }
 
   int rng = rand();
-  chance = total_chance * rng / RAND_MAX;
+  chance = total_chance * rng / ((float)RAND_MAX + 1);
   // printf("chance: %.12f / %.12f\n", chance, total_chance);
   for (i = 0; i < graph_size; i++) {
     chance -= edge_chances[i];
@@ -74,11 +75,19 @@ void ant_choose(ant_t *ant) {
       return;
     }
   }
+
+  // If the chance is over 0, we had rounding errors and should use the last one
+  if (chance > 0) {
+    ant_send(ant, last_edge);
+    return;
+  }
+  
+  // All probabilities were zero in this case, so we had massive pheromone underflow
   printf("--------------------------------------------------------------------\n");
   printf("Dead ant, that's bad\n");
-  printf("Random roll: %d / %d\n", rng, RAND_MAX);
+  printf("Random roll:  %d / %d\n", rng, RAND_MAX);
   printf("Total chance: %0.30f\n", total_chance);
-  printf("Chance left: %0.30f\n", chance);
+  printf("Chance left:  %0.30f\n", chance);
   for (i = 0; i < graph_size; i++)
     printf("%.12f : %.12f\n", edge_chances[i], graph_edges[ant->current_node][i].pheromone);
   exit(1);

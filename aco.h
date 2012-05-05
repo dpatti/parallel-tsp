@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <math.h>
 #include <time.h>
+#include <assert.h>
 
 #ifdef __blrts__
 // Blue Gene
@@ -14,32 +15,36 @@
 #endif
 #define INITIAL_PHEROMONE 0.1   // Parameter: Initial pheromone trail value
 #define ALPHA             1     // Parameter: Likelihood of ants to follow pheromone trails (larger value == more likely)
-#define BETA              2     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
+#define BETA              5     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
 #define LOCALDECAY        0.2   // Parameter: Governs local trail decay rate [0, 1]
 #define LOCALUPDATE       0.4   // Parameter: Amount of pheromone to reinforce local trail update by
 #define GLOBALDECAY       0.2   // Parameter: Governs global trail decay rate [0, 1]
 
 #define DEFAULT_GRAPH 16
 
-typedef int nodeid_t;
+#define debug(...) printf(__VA_ARGS__)
 
-typedef struct {
+typedef int nodeid_t;
+typedef float phero_t;
+
+typedef struct ant {
   int tour_length;
   int first_node;
   int current_node;
   int visited_nodes;
+  struct ant *next;
   nodeid_t path[];
 } ant_t;
 
 typedef struct {
   // unsigned weight; // might not need
-  float pheromone;
+  phero_t pheromone;
 } edge_t;
 
 // Globals
 int mpi_rank, mpi_size;
 edge_t **graph_edges;
-float *edge_chances;
+phero_t *edge_chances;
 int completed_ants;
 // Arguments
 int graph_size;
@@ -72,17 +77,14 @@ void comm_next();
 void comm_send();
 
 // Queue implementation
-typedef struct queue_node {
-  struct queue_node *next;
-  ant_t *ant;
-} queue_node_t;
 typedef struct {
-  queue_node_t *HEAD;
+  ant_t *HEAD;
+  ant_t *TAIL;
   int size;
-} ant_queue_t;
+} queue_t;
 typedef enum {spare_queue, process_queue, receive_queue, send_queue, finished_queue, num_queues} queue_type;
 void queue_init();
 int queue_size(queue_type type);
 void queue_push(queue_type type, ant_t *ant);
 ant_t *queue_pop(queue_type type);
-ant_t *queue_peek(queue_type type, int index);
+ant_t *queue_peek(queue_type type);

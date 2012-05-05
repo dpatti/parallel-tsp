@@ -1,7 +1,8 @@
 #include "aco.h"
 
-// ant_queue_t queues[num_queues];
-ant_t *queues[num_queues][200];
+#define debug(...) 
+
+queue_t queues[num_queues];
 int sizes[num_queues] = {0};
 
 void queue_init(){
@@ -14,23 +15,29 @@ int queue_size(queue_type type) {
 }
 
 void queue_push(queue_type type, ant_t *ant) {
-  // printf("queue_push[%d] (%d)\n", type, sizes[type]+1);
-  queues[type][sizes[type]] = ant;
+  debug("queue_push[%d] (%d)\n", type, sizes[type]+1);
+  ant->next = NULL;
+  if (queues[type].HEAD == NULL)
+    queues[type].HEAD = ant;
+  if (queues[type].TAIL)
+    queues[type].TAIL->next = ant;
+  queues[type].TAIL = ant;
   sizes[type]++;
 }
 
 ant_t *queue_pop(queue_type type) {
-  // printf("queue_pop[%d] (%d)\n", type, sizes[type]-1);
+  debug("queue_pop[%d] (%d)\n", type, sizes[type]-1);
+  ant_t *pop = queues[type].HEAD;
+  queues[type].HEAD = queues[type].HEAD->next;
+  if (queues[type].TAIL == pop)
+    queues[type].TAIL = NULL;
   sizes[type]--;
-  int i;
-  ant_t *pop;
-  pop = queues[type][0];
-  for (i = 0; i < sizes[type]; i++)
-    queues[type][i] = queues[type][i+1];
+  assert(sizes[type] >= 0);
+
   return pop;
 }
 
-ant_t *queue_peek(queue_type type, int index) {
-  // printf("queue_peek\n");
-  return queues[type][index];
+ant_t *queue_peek(queue_type type) {
+  debug("queue_peek\n");
+  return queues[type].HEAD;
 }
