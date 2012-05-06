@@ -10,7 +10,8 @@ void parseargs(int argc, char *argv[]);
 // }
 
 int main(int argc, char *argv[]) {
-  int i, j, iter, tour, ant_buffer_size;
+  int i, j, iter, tour_min, ant_buffer_size;
+  long tour_sum;
   int best_tour=0, best_iter=0, best_ct=0;
   ant_t *ant_iter;
 
@@ -75,25 +76,27 @@ int main(int argc, char *argv[]) {
     }
 
     // Find ant(s) with lowest tour length
-    tour = -1;
+    tour_min = -1;
+    tour_sum = 0;
     ant_iter = queue_peek(finished_queue);
     while (ant_iter != NULL) {
-      if (tour == -1 || ant_iter->tour_length < tour)
-        tour = ant_iter->tour_length;
+      if (tour_min == -1 || ant_iter->tour_length < tour_min)
+        tour_min = ant_iter->tour_length;
+      tour_sum += ant_iter->tour_length;
       ant_iter = ant_iter->next;
     }
 
-    tour = comm_sync(tour);
+    comm_sync(&tour_min, &tour_sum);
 
     // Wait for the others
     MPI_Barrier(MPI_COMM_WORLD);
 
-    if (mpi_rank == 0) printf("Best ant for iteration %d: %d\n", iter, tour);
-    if (!best_iter || tour < best_tour) {
-      best_tour = tour;
+    if (mpi_rank == 0) printf("Iteration %4d | Best tour: %d, average tour: %.2lf\n", iter, tour_min, (double)tour_sum/ant_count);
+    if (!best_iter || tour_min < best_tour) {
+      best_tour = tour_min;
       best_iter = iter;
       best_ct = 1;
-    } else if (tour == best_tour) {
+    } else if (tour_min == best_tour) {
       best_ct++;
     }
   }

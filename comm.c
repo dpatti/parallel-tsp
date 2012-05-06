@@ -157,23 +157,26 @@ void comm_loop() {
 }
 
 // Post-ACO trail sync
-int comm_sync(int tour) {
+void comm_sync(int *tour_min, long *tour_sum) {
   int i, j, count=0, global_count, index;
   ant_t *ant;
   MPI_Request dummy;
 
-  assert(tour > 0 || queue_size(finished_queue) == 0);
+  assert(*tour_min > 0 || queue_size(finished_queue) == 0);
 
-  fprintf(debug, "[%d] comm_sync: %d\n", mpi_rank, tour);
+  fprintf(debug, "[%d] comm_sync: %d\n", mpi_rank, *tour_min);
+
+  // Reduce to find the total tour lengths taken
+  MPI_Allreduce(MPI_IN_PLACE, tour_sum, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
 
   // Reduce to find the lowest tour length of this iteration
-  MPI_Allreduce(MPI_IN_PLACE, &tour, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
-  fprintf(debug, "[%d] best ant: %d\n", mpi_rank, tour);
+  MPI_Allreduce(MPI_IN_PLACE, tour_min, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
+  fprintf(debug, "[%d] best ant: %d\n", mpi_rank, *tour_min);
 
   // Count ants on our core that match winning length
   for (i = 0; i < local_ants; i++) {
     ant = queue_pop(finished_queue);
-    if (ant->tour_length == tour) {
+    if (ant->tour_length == *tour_min) {
       count++;
       // Post this ant for sends. We're not using our comm array since
       //   a) We don't care about checking completion, we just know it will be
@@ -246,6 +249,4 @@ int comm_sync(int tour) {
           queue_size(finished_queue) == 0 &&
           open_sends == 0 &&
           open_recvs == 0 );
-
-  return tour;
 }

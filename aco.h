@@ -89,7 +89,7 @@ int comm_next_index();
 void comm_send(ant_t *ant, int rank);
 void comm_recv(ant_t *ant);
 void comm_loop();
-int comm_sync(int tour);
+void comm_sync(int *tour_min, long *tour_sum);
 
 // Queue implementation
 typedef enum {spare_queue, process_queue, finished_queue, num_queues} queue_type;
