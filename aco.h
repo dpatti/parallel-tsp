@@ -77,7 +77,7 @@ int get_rank(int node_id);
 ant_t *ant_allocate();
 ant_t *ant_reset(ant_t *ant, int start);
 void ant_choose(ant_t *ant);
-void ant_finish();
+void ant_finish(ant_t *ant);
 void ant_send(ant_t *ant, int next);
 void ant_retour(ant_t *ant);
 

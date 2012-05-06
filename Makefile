@@ -23,6 +23,9 @@ full: all
 verbose: all
 	mpirun -np 4 ./aco --iterations 1000 -v
 
+kratos: all
+	mpirun -np 4 ./aco --graph_size 1024 --iterations 1000 > kratos.out
+
 clean:
 	-$(RM) *.o
 
