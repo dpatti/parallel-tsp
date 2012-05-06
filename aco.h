@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <mpi.h>
 #include <math.h>
@@ -30,7 +31,7 @@
 #define debug(...) printf(__VA_ARGS__)
 
 typedef int nodeid_t;
-typedef float phero_t;
+typedef double phero_t;
 
 typedef struct ant {
   int tour_length;

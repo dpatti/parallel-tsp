@@ -12,7 +12,7 @@ run: all
 	mpirun -np 1 ./aco
 
 multicore: all
-	mpirun -np 2 ./aco
+	mpirun -np 2 ./aco --ants 1 --iterations 1000
 
 clean:
 	-$(RM) *.o

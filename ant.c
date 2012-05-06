@@ -42,9 +42,10 @@ void ant_choose(ant_t *ant) {
 
     last_edge = i;
     chance = pow(graph_edges[get_local_index(ant->current_node)][i].pheromone, ALPHA) / pow(edge_hash(get_local_index(ant->current_node), i), BETA);
-    // printf("%d: %.20f %f, %d\n", i, chance, graph_edges[ant->current_node][i].pheromone, edge_hash(ant->current_node, i));
+    // printf("%d: %.20f %f, %d\n", i, chance, graph_edges[get_local_index(ant->current_node)][i].pheromone, edge_hash(ant->current_node, i));
     edge_chances[i] = chance;
     total_chance += chance;
+    // printf("%02d %d : %.20f : %.20f\n", i, ant->visited_nodes, chance, total_chance);
   }
 
   int rng = rand();
@@ -72,7 +73,7 @@ void ant_choose(ant_t *ant) {
   printf("Total chance: %0.30f\n", total_chance);
   printf("Chance left:  %0.30f\n", chance);
   for (i = 0; i < graph_size; i++)
-    printf("%.12f : %.12f\n", edge_chances[i], graph_edges[get_local_index(ant->current_node)][i].pheromone);
+    printf("%c%02d %.12f : %.12f / %d\n", edge_chances[i]==0?'!':' ', i, edge_chances[i], graph_edges[get_local_index(ant->current_node)][i].pheromone, edge_hash(get_local_index(ant->current_node), i));
   exit(1);
 }
 

@@ -75,7 +75,6 @@ int main(int argc, char *argv[]) {
         tour = ant_iter->tour_length;
       ant_iter = ant_iter->next;
     }
-    assert(tour > 0);
 
     tour = comm_sync(tour);
 
