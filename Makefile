@@ -15,12 +15,16 @@ bluegene:
 # Queues the batch script on the BlueGene
 queue:
 	mkdir -p out
-	sbatch -p bigmem --nodes 512 -t 10 -o ./out/lastrun ./blue_gene_run.sh 1024
+	sbatch -p bigmem --nodes 512 -t 10 -o ./out/lastrun ./blue_gene_run.sh 128
+
+# Checks results of the latest test (can be used while running)
+results:
+	find out -newer out/lastrun -name "std*" | xargs tail -n9
 
 run: all
 	mpirun -np 1 ./aco
 multicore: all
-	mpirun -np 2 ./aco --ants 1 --iterations 1000
+	mpirun -np 2 ./aco --ants 1
 multiant: all
 	mpirun -np 2 ./aco --ants 2
 full: all
@@ -28,7 +32,7 @@ full: all
 verbose: all
 	mpirun -np 4 ./aco --iterations 1000 -v
 kratos: all
-	mpirun -np 4 ./aco --graph_size 1024 --iterations 1000 > kratos.out
+	mpirun -np 8 ./aco --graph_size 1024 --iterations 1000 > kratos.out
 
 clean:
 	-$(RM) *.o

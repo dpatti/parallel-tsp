@@ -52,6 +52,15 @@ int main(int argc, char *argv[]) {
 
   // Start iterations
   for (iter = 0; iter < iterations; iter++) {
+    // Test pheromone printing
+    // for (i = 0; i < local_nodes; i++) {
+    //   printf("[%d] ", mpi_rank);
+    //   for (j = 0; j < graph_size; j++) {
+    //     printf("%.6f ", graph_edges[i][j].pheromone);
+    //   }
+    //   printf("\n");
+    // }
+
     // fprintf(debug, "Iteration %d\n", iter);
     // Reset initial ant queue
     while (queue_size(finished_queue))
