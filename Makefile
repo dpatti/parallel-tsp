@@ -1,5 +1,5 @@
 NAME=aco
-SRC=main.c parseargs.c hash.c graph.c ant.c comm.c queue.c
+SRC=main.c parseargs.c hash.c graph.c ant.c comm.c queue.c timers.c
 OBJ=$(SRC:.c=.o)
 CFLAGS=-Wall -g -O3 -rdynamic
 RM=rm -f

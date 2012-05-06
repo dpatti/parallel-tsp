@@ -27,12 +27,17 @@ int main(int argc, char *argv[]) {
 	iterations = 20;
 	parseargs(argc, argv);
 
-  // Set up a new file descriptor(3) and handle(debug) for debug
-  dup2(1, 3);
-  debug = fdopen(3, "a");
-  // By closing it now, we can still have valid fprintfs, but it won't go anywhere
-  if (!verbose)
-    close(3);
+  // Shit is bugged
+  if (verbose)
+    debug = stdout;
+  else
+    debug = fopen("/dev/null", "w");
+  // // Set up a new file descriptor(3) and handle(debug) for debug
+  // dup2(1, 3);
+  // debug = fdopen(3, "a");
+  // // By closing it now, we can still have valid fprintfs, but it won't go anywhere
+  // if (!verbose)
+  //   close(3);
 
   // Initialization of this core
   srand(time(NULL));
@@ -51,6 +56,7 @@ int main(int argc, char *argv[]) {
     queue_push(spare_queue, ant_allocate());
 
   // Start iterations
+  timer_start(total_time);
   for (iter = 0; iter < iterations; iter++) {
     // Test pheromone printing
     // for (i = 0; i < local_nodes; i++) {
@@ -73,7 +79,9 @@ int main(int argc, char *argv[]) {
 
     // Do entire ACO algorithm
     fprintf(debug, "Starting ACO\n");
+    timer_start(aco_time);
     comm_loop();
+    timer_stop(aco_time);
     // fprintf(debug, "Ending ACO\n");
 
     // Do pheromone reduction of each local edge
@@ -95,7 +103,9 @@ int main(int argc, char *argv[]) {
       ant_iter = ant_iter->next;
     }
 
+    timer_start(sync_time);
     comm_sync(&tour_min, &tour_sum);
+    timer_stop(sync_time);
 
     // Wait for the others
     MPI_Barrier(MPI_COMM_WORLD);
@@ -109,8 +119,18 @@ int main(int argc, char *argv[]) {
       best_ct++;
     }
   }
+  timer_stop(total_time);
 
-  if (mpi_rank == 0) printf("Best solution was %d found %d times; first on tour %d\n", best_tour, best_ct, best_iter);
+  if (mpi_rank == 0){
+    printf("Best solution was %d found %d times; first on tour %d\n", best_tour, best_ct, best_iter);
+    printf("Ant size:       %lu\n", ANT_T_SIZE);
+    printf("Ant transfers:  %d\n", send_count);
+    printf("Total time:     %.3lfs\n", timer_get(total_time));
+    printf("  Compute time:   %.3lfs\n", timer_get(compute_time));
+    printf("  Transfer time:  %.3lfs\n", timer_get(total_time) - timer_get(compute_time));
+    printf("  ACO time:       %.3lfs\n", timer_get(aco_time));
+    printf("  Sync time:      %.3lfs\n", timer_get(sync_time));
+  }
 
   // Cleanup
   for (i = 0; i < num_queues; i++)

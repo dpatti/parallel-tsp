@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <execinfo.h>
 #include <signal.h>
+#include "rdtsc.h"
 
 #ifdef __blrts__
 // Blue Gene
@@ -54,11 +55,18 @@ int mpi_rank, mpi_size;
 edge_t **graph_edges;
 phero_t *edge_chances;
 int local_nodes, local_ants;
+int send_count;
 // Arguments
 int graph_size;
 int ant_count;
 int iterations;
 int verbose; FILE *debug;
+
+// Timers
+typedef enum {total_time, compute_time, aco_time, sync_time, num_timers} timer;
+void timer_start(timer);
+void timer_stop(timer);
+double timer_get(timer);
 
 // Hash functions
 unsigned elf_hash(void *key, int len);

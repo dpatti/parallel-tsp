@@ -77,6 +77,7 @@ void comm_send(ant_t *ant, int rank) {
   req_ant[index] = ant;
   req_type[index] = SEND_REQUEST;
   open_sends++;
+  send_count++;
 }
 
 void comm_recv(ant_t *ant) {
@@ -130,7 +131,9 @@ void comm_loop() {
     // If the process queue is not empty, process one and loop
     if (queue_size(process_queue) > 0) {
       fprintf(debug, "[%d] process\n", mpi_rank);
+      timer_start(compute_time);
       ant_choose(queue_pop(process_queue));
+      timer_stop(compute_time);
       ant_visits++;
       // fprintf(debug, "Waiting for %d ants; %d done\n", (ant_count * local_nodes) + local_ants, ant_visits);
     } else {
@@ -184,9 +187,12 @@ void comm_sync(int *tour_min, long *tour_sum) {
       //   b) We are sending to every core, which can be a lot of entries in the
       //      array, which does not work for our model since there should always
       //      be enough room in the array for every unique ant allocation
-      for (j = 0; j < mpi_size; j++)
-        if (j != mpi_rank)
+      for (j = 0; j < mpi_size; j++) {
+        if (j != mpi_rank) {
           MPI_Isend(ant, ANT_T_SIZE, MPI_BYTE, j, 0, MPI_COMM_WORLD, &dummy);
+          send_count++;
+        }
+      }
       // Be ready to process these later when we are waiting for recvs
       queue_push(process_queue, ant);
       fprintf(debug, "[%d] posted ant send\n", mpi_rank);
@@ -214,7 +220,9 @@ void comm_sync(int *tour_min, long *tour_sum) {
   // While we wait for that, process our own, if any
   while (queue_size(process_queue)) {
     ant = queue_pop(process_queue);
+    timer_start(compute_time);
     ant_retour(ant);
+    timer_stop(compute_time);
     queue_push(spare_queue, ant);
     fprintf(debug, "[%d] retoured ant\n", mpi_rank);
   }
@@ -224,7 +232,9 @@ void comm_sync(int *tour_min, long *tour_sum) {
     MPI_Waitany(buffer_size, req_mpi, &index, MPI_STATUS_IGNORE);
     ant = req_ant[index];
     comm_close(index, &open_recvs);
+    timer_start(compute_time);
     ant_retour(ant);
+    timer_stop(compute_time);
     fprintf(debug, "[%d] received ant\n", mpi_rank);
 
     // Repost a recv if we have more
