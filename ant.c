@@ -21,7 +21,7 @@ void ant_choose(ant_t *ant) {
   phero_t chance, total_chance=0;
 
   assert(ant != NULL);
-  // printf("ant_choose at %d, did %d\n", ant->current_node, ant->visited_nodes);
+  // fprintf(debug, "ant_choose at %d, did %d\n", ant->current_node, ant->visited_nodes);
 
   // Check if ant is done
   if (ant->visited_nodes == graph_size)
@@ -42,15 +42,15 @@ void ant_choose(ant_t *ant) {
 
     last_edge = i;
     chance = pow(graph_edges[get_local_index(ant->current_node)][i].pheromone, ALPHA) / pow(edge_hash(get_local_index(ant->current_node), i), BETA);
-    // printf("%d: %.20f %f, %d\n", i, chance, graph_edges[get_local_index(ant->current_node)][i].pheromone, edge_hash(ant->current_node, i));
+    // fprintf(debug, "%d: %.20f %f, %d\n", i, chance, graph_edges[get_local_index(ant->current_node)][i].pheromone, edge_hash(ant->current_node, i));
     edge_chances[i] = chance;
     total_chance += chance;
-    // printf("%02d %d : %.20f : %.20f\n", i, ant->visited_nodes, chance, total_chance);
+    // fprintf(debug, "%02d %d : %.20f : %.20f\n", i, ant->visited_nodes, chance, total_chance);
   }
 
   int rng = rand();
   chance = total_chance * rng / ((float)RAND_MAX + 1);
-  // printf("chance: %.12f / %.12f\n", chance, total_chance);
+  // fprintf(debug, "chance: %.12f / %.12f\n", chance, total_chance);
   for (i = 0; i < graph_size; i++) {
     chance -= edge_chances[i];
     if (chance < 0) {
@@ -94,7 +94,7 @@ void ant_send(ant_t *ant, int next) {
   ant->visited_nodes++;
 
   dest_rank = get_rank(next);
-  // printf("ant_send to %d on %d\n", next, dest_rank);
+  // fprintf(debug, "ant_send to %d on %d\n", next, dest_rank);
   if (dest_rank == mpi_rank)
     queue_push(process_queue, ant);
   else

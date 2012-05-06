@@ -23,6 +23,9 @@ void parseargs(int argc, char *argv[]){
 			iterations = atoi(argv[i+1]);	
 			++i;
 		}	
+    else if(strcmp(argv[i], "-v") == 0) {
+      verbose = TRUE;
+    }
 	}
 }
 

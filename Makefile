@@ -14,6 +14,15 @@ run: all
 multicore: all
 	mpirun -np 2 ./aco --ants 1 --iterations 1000
 
+multiant: all
+	mpirun -np 2 ./aco --ants 2
+
+full: all
+	mpirun -np 4 ./aco --iterations 1000
+
+verbose: all
+	mpirun -np 4 ./aco --iterations 1000 -v
+
 clean:
 	-$(RM) *.o
 

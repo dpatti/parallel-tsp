@@ -16,6 +16,9 @@
 // Kratos
 #define CLOCK_RATE 2666700000.0
 #endif
+#define TRUE  1
+#define FALSE 0
+
 #define INITIAL_PHEROMONE 0.1   // Parameter: Initial pheromone trail value
 #define ALPHA             1     // Parameter: Likelihood of ants to follow pheromone trails (larger value == more likely)
 #define BETA              2     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
@@ -28,7 +31,6 @@
 #define MAX_RECVS         5     // Maximum simultaneous non-blocking MPI receives open at any given time
 
 #define ANT_T_SIZE        (sizeof(ant_t) + graph_size * sizeof(nodeid_t))
-#define debug(...) printf(__VA_ARGS__)
 
 typedef int nodeid_t;
 typedef double phero_t;
@@ -56,6 +58,7 @@ int local_nodes, local_ants;
 int graph_size;
 int ant_count;
 int iterations;
+int verbose; FILE *debug;
 
 // Hash functions
 unsigned elf_hash(void *key, int len);

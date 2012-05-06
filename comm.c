@@ -72,7 +72,7 @@ void comm_send(ant_t *ant, int rank) {
   assert(ant != NULL);
   assert(rank >= 0 && rank < mpi_size);
 
-  printf("[%d] open send to %d\n", mpi_rank, rank);
+  fprintf(debug, "[%d] open send to %d\n", mpi_rank, rank);
   MPI_Isend(ant, ANT_T_SIZE, MPI_BYTE, rank, 0, MPI_COMM_WORLD, &req_mpi[index]);
   req_ant[index] = ant;
   req_type[index] = SEND_REQUEST;
@@ -100,22 +100,22 @@ void comm_loop() {
   //  (i.e., every ant visited every core once, and the ants you started with an
   //         additional time)
   while ((ant_visits < (ant_count * local_nodes) + local_ants) || open_sends > 0) {
-    printf("[%d] loop %d / %d (s: %d, r: %d)\n", mpi_rank, ant_visits, (ant_count * local_nodes) + local_ants, open_sends, open_recvs);
+    fprintf(debug, "[%d] loop %d / %d (s: %d, r: %d)\n", mpi_rank, ant_visits, (ant_count * local_nodes) + local_ants, open_sends, open_recvs);
     // Check for received ants, and move any to process queue
     MPI_Testsome(buffer_size, req_mpi, &count_done, req_done, MPI_STATUS_IGNORE);
-    printf("[%d] testsome done: %d\n", mpi_rank, count_done);
+    fprintf(debug, "[%d] testsome done: %d\n", mpi_rank, count_done);
     for (i = 0; i < count_done; i++) {
       index = req_done[i];
       assert(req_type[index] != NULL_REQUEST);
 
       if (req_type[index] == SEND_REQUEST) {
         // Send requests are pushed to the spare as the memory is not needed
-        printf("[%d] close send\n", mpi_rank);
+        fprintf(debug, "[%d] close send\n", mpi_rank);
         queue_push(spare_queue, req_ant[index]);
         comm_close(index, &open_sends);
       } else {
         // Recv requests are pushed to the process queue
-        printf("[%d] close recv\n", mpi_rank);
+        fprintf(debug, "[%d] close recv\n", mpi_rank);
         queue_push(process_queue, req_ant[index]);
         comm_close(index, &open_recvs);
       }
@@ -123,21 +123,24 @@ void comm_loop() {
 
     // Check if we need to post more receives
     while (open_recvs < MAX_RECVS && queue_size(spare_queue) > 0) {
-      printf("[%d] open recv\n", mpi_rank);
+      fprintf(debug, "[%d] open recv\n", mpi_rank);
       comm_recv(queue_pop(spare_queue));
     }
 
     // If the process queue is not empty, process one and loop
     if (queue_size(process_queue) > 0) {
-      printf("[%d] process\n", mpi_rank);
+      fprintf(debug, "[%d] process\n", mpi_rank);
       ant_choose(queue_pop(process_queue));
       ant_visits++;
-      // printf("Waiting for %d ants; %d done\n", (ant_count * local_nodes) + local_ants, ant_visits);
+      // fprintf(debug, "Waiting for %d ants; %d done\n", (ant_count * local_nodes) + local_ants, ant_visits);
     } else {
+      // New note: Waiting is bad, I think. Any request that causes waiting to
+      // fall through will be marked as finished and not recognized in Testsome.
+
       // If it is empty, MPI_Wait() until something comes in and loop
-      // printf("[%d] waitany %d+%d / %d\n", mpi_rank, open_sends, open_recvs, buffer_size);
+      // fprintf(debug, "[%d] waitany %d+%d / %d\n", mpi_rank, open_sends, open_recvs, buffer_size);
       // MPI_Waitany(buffer_size, req_mpi, &count_done, MPI_STATUS_IGNORE);
-      // printf("[%d] waitany-post\n", mpi_rank);
+      // fprintf(debug, "[%d] waitany-post\n", mpi_rank);
     }
   }
 
@@ -161,11 +164,11 @@ int comm_sync(int tour) {
 
   assert(tour > 0 || queue_size(finished_queue) == 0);
 
-  printf("[%d] comm_sync: %d\n", mpi_rank, tour);
+  fprintf(debug, "[%d] comm_sync: %d\n", mpi_rank, tour);
 
   // Reduce to find the lowest tour length of this iteration
   MPI_Allreduce(MPI_IN_PLACE, &tour, 1, MPI_UNSIGNED, MPI_MIN, MPI_COMM_WORLD);
-  printf("[%d] best ant: %d\n", mpi_rank, tour);
+  fprintf(debug, "[%d] best ant: %d\n", mpi_rank, tour);
 
   // Count ants on our core that match winning length
   for (i = 0; i < local_ants; i++) {
@@ -183,7 +186,7 @@ int comm_sync(int tour) {
           MPI_Isend(ant, ANT_T_SIZE, MPI_BYTE, j, 0, MPI_COMM_WORLD, &dummy);
       // Be ready to process these later when we are waiting for recvs
       queue_push(process_queue, ant);
-      printf("[%d] posted ant send\n", mpi_rank);
+      fprintf(debug, "[%d] posted ant send\n", mpi_rank);
     } else {
       // This ant is irrelevant and can be repurposed if needed
       queue_push(spare_queue, ant);
@@ -192,7 +195,7 @@ int comm_sync(int tour) {
 
   // Reduce sum this count
   MPI_Allreduce(&count, &global_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  printf("[%d] reduced: %d %d\n", mpi_rank, count, global_count);
+  fprintf(debug, "[%d] reduced: %d %d\n", mpi_rank, count, global_count);
 
   // Post receives for (n - m) ants where n is the total count and m is how
   //   many you are sending out
@@ -202,7 +205,7 @@ int comm_sync(int tour) {
     ant = queue_pop(spare_queue);
     comm_recv(ant);
     global_count--;
-    printf("[%d] open initial receive\n", mpi_rank);
+    fprintf(debug, "[%d] open initial receive\n", mpi_rank);
   }
 
   // While we wait for that, process our own, if any
@@ -210,7 +213,7 @@ int comm_sync(int tour) {
     ant = queue_pop(process_queue);
     ant_retour(ant);
     queue_push(spare_queue, ant);
-    printf("[%d] retoured ant\n", mpi_rank);
+    fprintf(debug, "[%d] retoured ant\n", mpi_rank);
   }
 
   // Poll and process while receives are coming in
@@ -219,7 +222,7 @@ int comm_sync(int tour) {
     ant = req_ant[index];
     comm_close(index, &open_recvs);
     ant_retour(ant);
-    printf("[%d] received ant\n", mpi_rank);
+    fprintf(debug, "[%d] received ant\n", mpi_rank);
 
     // Repost a recv if we have more
     if (global_count > 0) {
@@ -231,7 +234,7 @@ int comm_sync(int tour) {
   }
 
   // We should be back to our initial state of only ants on spare
-  printf("bs: %d  sq: %d  pq: %d  fq: %d  os: %d  or: %d\n",
+  fprintf(debug, "bs: %d  sq: %d  pq: %d  fq: %d  os: %d  or: %d\n",
       buffer_size,
       queue_size(spare_queue),
       queue_size(process_queue),

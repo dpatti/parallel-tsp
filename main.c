@@ -22,9 +22,16 @@ int main(int argc, char *argv[]) {
 
   // Parse command line arguments
   graph_size = DEFAULT_GRAPH;
-  ant_count = 100; // DEFAULT_GRAPH;
+  ant_count = DEFAULT_GRAPH;
 	iterations = 20;
 	parseargs(argc, argv);
+
+  // Set up a new file descriptor(3) and handle(debug) for debug
+  dup2(1, 3);
+  debug = fdopen(3, "a");
+  // By closing it now, we can still have valid fprintfs, but it won't go anywhere
+  if (!verbose)
+    close(3);
 
   // Initialization of this core
   srand(time(NULL));
@@ -44,7 +51,7 @@ int main(int argc, char *argv[]) {
 
   // Start iterations
   for (iter = 0; iter < iterations; iter++) {
-    // debug("Iteration %d\n", iter);
+    // fprintf(debug, "Iteration %d\n", iter);
     // Reset initial ant queue
     while (queue_size(finished_queue))
       queue_push(spare_queue, queue_pop(finished_queue));
@@ -55,15 +62,15 @@ int main(int argc, char *argv[]) {
             get_node_id(i % local_nodes)));
 
     // Do entire ACO algorithm
-    debug("Starting ACO\n");
+    fprintf(debug, "Starting ACO\n");
     comm_loop();
-    // debug("Ending ACO\n");
+    // fprintf(debug, "Ending ACO\n");
 
     // Do pheromone reduction of each local edge
     for (i = 0; i < local_nodes; i++) {
       for (j = 0; j < graph_size; j++) {
         graph_edges[i][j].pheromone *= (1 - GLOBALDECAY);
-        // debug("[%d][%d] = %.12f\n", i, j, graph_edges[i][j].pheromone);
+        // fprintf(debug, "[%d][%d] = %.12f\n", i, j, graph_edges[i][j].pheromone);
       }
     }
 
@@ -81,7 +88,7 @@ int main(int argc, char *argv[]) {
     // Wait for the others
     MPI_Barrier(MPI_COMM_WORLD);
 
-    printf("Best ant for iteration %d: %d\n", iter, tour);
+    if (mpi_rank == 0) printf("Best ant for iteration %d: %d\n", iter, tour);
     if (!best_iter || tour < best_tour) {
       best_tour = tour;
       best_iter = iter;
@@ -91,7 +98,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  printf("Best solution was %d found %d times; first on tour %d\n", best_tour, best_ct, best_iter);
+  if (mpi_rank == 0) printf("Best solution was %d found %d times; first on tour %d\n", best_tour, best_ct, best_iter);
 
   // Cleanup
   for (i = 0; i < num_queues; i++)
