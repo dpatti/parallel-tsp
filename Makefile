@@ -8,21 +8,25 @@ CC=mpicc
 all: $(OBJ)
 	mpicc $(CFLAGS) -o $(NAME) $(OBJ) -lm
 
+# Builds project on BlueGene
+bluegene:
+	mpixlc -O5 -qarch=440d -qtune=440 -o ${NAME} ${SRC}
+
+# Queues the batch script on the BlueGene
+queue:
+	mkdir -p out
+	sbatch -p bigmem --nodes 512 -t 10 -o ./out/lastrun ./blue_gene_run.sh 1024
+
 run: all
 	mpirun -np 1 ./aco
-
 multicore: all
 	mpirun -np 2 ./aco --ants 1 --iterations 1000
-
 multiant: all
 	mpirun -np 2 ./aco --ants 2
-
 full: all
 	mpirun -np 4 ./aco --iterations 1000
-
 verbose: all
 	mpirun -np 4 ./aco --iterations 1000 -v
-
 kratos: all
 	mpirun -np 4 ./aco --graph_size 1024 --iterations 1000 > kratos.out
 
