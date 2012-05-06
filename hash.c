@@ -20,6 +20,9 @@ unsigned elf_hash (void *key, int len) {
 
 unsigned edge_hash(int a, int b) {
   int key[2];
+
+  assert(a >= 0 && b >= 0);
+
   if (a < b) {
     key[0] = a * 1234567;
     key[1] = b * 1234567;

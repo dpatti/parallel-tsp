@@ -5,6 +5,8 @@
 #include <math.h>
 #include <time.h>
 #include <assert.h>
+#include <execinfo.h>
+#include <signal.h>
 
 #ifdef __blrts__
 // Blue Gene
@@ -15,12 +17,14 @@
 #endif
 #define INITIAL_PHEROMONE 0.1   // Parameter: Initial pheromone trail value
 #define ALPHA             1     // Parameter: Likelihood of ants to follow pheromone trails (larger value == more likely)
-#define BETA              5     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
+#define BETA              2     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
 #define LOCALDECAY        0.2   // Parameter: Governs local trail decay rate [0, 1]
 #define LOCALUPDATE       0.4   // Parameter: Amount of pheromone to reinforce local trail update by
 #define GLOBALDECAY       0.2   // Parameter: Governs global trail decay rate [0, 1]
 
-#define DEFAULT_GRAPH     16
+#define DEFAULT_GRAPH     16    // Default graph size
+#define BUFFER_RATIO      3/1   // Number of total ants allocated relative to average ant counts
+#define MAX_RECVS         5     // Maximum simultaneous non-blocking MPI receives open at any given time
 
 #define ANT_T_SIZE        (sizeof(ant_t) + graph_size * sizeof(nodeid_t))
 #define debug(...) printf(__VA_ARGS__)
@@ -46,7 +50,7 @@ typedef struct {
 int mpi_rank, mpi_size;
 edge_t **graph_edges;
 phero_t *edge_chances;
-int completed_ants;
+int local_nodes, local_ants;
 // Arguments
 int graph_size;
 int ant_count;
@@ -74,16 +78,17 @@ void ant_send(ant_t *ant, int next);
 void ant_retour(ant_t *ant);
 
 // MPI Communication
-void comm_next();
-void comm_send();
+void comm_init(int ant_ct);
+void comm_free();
+void comm_close(int index, int *open_counter);
+int comm_next_index();
+void comm_send(ant_t *ant, int rank);
+void comm_recv(ant_t *ant);
+void comm_loop();
+int comm_sync(int tour);
 
 // Queue implementation
-typedef struct {
-  ant_t *HEAD;
-  ant_t *TAIL;
-  int size;
-} queue_t;
-typedef enum {spare_queue, process_queue, receive_queue, send_queue, finished_queue, num_queues} queue_type;
+typedef enum {spare_queue, process_queue, finished_queue, num_queues} queue_type;
 void queue_init();
 int queue_size(queue_type type);
 void queue_push(queue_type type, ant_t *ant);

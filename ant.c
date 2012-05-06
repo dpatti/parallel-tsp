@@ -1,25 +1,13 @@
 #include "aco.h"
-// ant_t *ant, *ant2;
-
-// int size = 100;
-// ant = (ant_t*) malloc(1 * sizeof(ant_t) + size * sizeof(unsigned char));
-// ant2 = (ant_t*) malloc(1 * sizeof(ant_t) + size * sizeof(unsigned char));
-// printf("%d\n", sizeof(ant_t));
-// int i;
-// for (i = 0; i < size; i ++){
-//   ant->visited[i] = i;
-//   ant2->visited[i] = size-i;
-// }
-// for (i = 0; i < size; i ++){
-//   printf("%d %d\n", ant->visited[i], ant2->visited[i]);
-// }
-// free(ant);
 
 ant_t *ant_allocate(){
   return (ant_t*) malloc(ANT_T_SIZE);
 }
 
 ant_t *ant_reset(ant_t *ant, int start) {
+  assert(ant != NULL);
+  assert(start >= 0 && start < graph_size);
+
   ant->tour_length = 0;
   ant->first_node = start;
   ant->current_node = start;
@@ -32,16 +20,12 @@ void ant_choose(ant_t *ant) {
   int i, last_edge=0;
   phero_t chance, total_chance=0;
 
-  if (ant == NULL)
-    return;
+  assert(ant != NULL);
   // printf("ant_choose at %d, did %d\n", ant->current_node, ant->visited_nodes);
 
   // Check if ant is done
   if (ant->visited_nodes == graph_size)
     return ant_finish(ant);
-
-  // Increment counter since an ant visited a node of ours
-  completed_ants++;
 
   // Check if ant must return home
   if (ant->visited_nodes == graph_size - 1)
@@ -57,7 +41,7 @@ void ant_choose(ant_t *ant) {
     }
 
     last_edge = i;
-    chance = pow(graph_edges[ant->current_node][i].pheromone, ALPHA) / pow(edge_hash(ant->current_node, i), BETA);
+    chance = pow(graph_edges[get_local_index(ant->current_node)][i].pheromone, ALPHA) / pow(edge_hash(get_local_index(ant->current_node), i), BETA);
     // printf("%d: %.20f %f, %d\n", i, chance, graph_edges[ant->current_node][i].pheromone, edge_hash(ant->current_node, i));
     edge_chances[i] = chance;
     total_chance += chance;
@@ -88,19 +72,20 @@ void ant_choose(ant_t *ant) {
   printf("Total chance: %0.30f\n", total_chance);
   printf("Chance left:  %0.30f\n", chance);
   for (i = 0; i < graph_size; i++)
-    printf("%.12f : %.12f\n", edge_chances[i], graph_edges[ant->current_node][i].pheromone);
+    printf("%.12f : %.12f\n", edge_chances[i], graph_edges[get_local_index(ant->current_node)][i].pheromone);
   exit(1);
 }
 
 void ant_finish(ant_t *ant) {
-  // printf("ant_finish\n");
-  // exit(0);
-  // push to new queue or something to keep ant safe
+  assert(ant != NULL);
   queue_push(finished_queue, ant);
 }
 
 void ant_send(ant_t *ant, int next) {
   int dest_rank;
+
+  assert(ant != NULL);
+  assert(next >= 0 && next < graph_size);
 
   ant->tour_length += edge_hash(ant->current_node, next);
   ant->path[ant->current_node] = next;
@@ -110,15 +95,14 @@ void ant_send(ant_t *ant, int next) {
   dest_rank = get_rank(next);
   // printf("ant_send to %d on %d\n", next, dest_rank);
   if (dest_rank == mpi_rank)
-    // XXX Maybe push to queue instead
-    ant_choose(ant);
+    queue_push(process_queue, ant);
   else
     comm_send(ant, dest_rank);
 }
 
 void ant_retour(ant_t *ant) {
   int i;
-  int local_nodes = graph_size / mpi_size + (mpi_rank < graph_size % mpi_size);
+  assert(ant != NULL);
   for (i = 0; i < local_nodes; i++)
-    graph_edges[i][get_node_id(ant->path[i])].pheromone += GLOBALDECAY / ant->tour_length;
+    graph_edges[i][ant->path[i]].pheromone += GLOBALDECAY / ant->tour_length;
 }
