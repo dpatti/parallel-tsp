@@ -1,0 +1,18 @@
+Iteration    0 | Best tour: 340832, average tour: 343632.00
+Iteration    1 | Best tour: 339984, average tour: 343365.00
+Iteration    2 | Best tour: 340976, average tour: 344542.00
+Iteration    3 | Best tour: 341904, average tour: 344389.00
+Iteration    4 | Best tour: 339904, average tour: 342712.00
+Iteration    5 | Best tour: 339424, average tour: 343260.00
+Iteration    6 | Best tour: 341200, average tour: 343378.00
+Iteration    7 | Best tour: 340960, average tour: 343967.00
+Iteration    8 | Best tour: 340496, average tour: 343695.00
+Iteration    9 | Best tour: 338544, average tour: 343541.00
+Best solution was 338544 found 1 times; first on tour 9
+Ant size:       16408
+Ant transfers:  0
+Total time:     230.933s
+  Compute time:   229.589s
+  Transfer time:  1.344s
+  ACO time:       230.710s
+  Sync time:      0.001s
