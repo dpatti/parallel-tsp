@@ -12,7 +12,11 @@ run: all
 	mpirun -np 1 ./aco
 
 clean:
-	-$(RM) *.o
+	-$(RM) *.o tex/*.aux tex/*.log tex/*.pdf
 
 fclean: clean
 	-$(RM) $(NAME)
+
+pdf:
+	make tex/make pdf
+	pdflatex tex/main.tex

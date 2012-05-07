@@ -1,0 +1,207 @@
+% // final project report / paper
+
+\documentclass{acm_proc_article-sp}
+\usepackage{algpseudocode}
+
+\begin{document}
+
+\title{Making Ant Colony Optimization Parallel}
+%\subtitle{[Extended Abstract]
+
+\numberofauthors{300} 
+
+\author{
+\alignauthor
+Doug Patti\\
+       \email{pattid2@rpi.edu}
+% 2nd. author
+\alignauthor
+Ziv Kennan\\
+       \email{kennaz@rpi.edu}
+% 3rd. author
+\alignauthor Patrick Phipps\\
+       \email{phippp@rpi.edu}
+}
+
+\maketitle
+\begin{abstract}
+
+This paper provides a look into the thought processes, considerations, results and
+implementation details of our final project: parallelizing the ant colony 
+optimization to solve the traveling salesman problem within a reasonable bound. 
+
+It then provides a discussion on the results of the modified algorithm,
+comparing it to a serial solution as well as studying the scaling properties
+on two different computer systems. The two systems used in this study will be
+an optimized high perfomance system called Kratos and a Blue Gene/L system here
+at RPI.
+
+\end{abstract}
+
+\terms{Traveling Salesman Problem}
+
+\keywords{Parallel, MPI, Ant Colony, Optimization, TSP}
+
+\section{Introduction}
+Computationally hard problems commonly come up when attempting to solve
+useful and practical problems. One such problem is the traveling salesman 
+problem. This is a well known problem in the computer science community. Formulated
+in 1930 TODOTODOTDOTDOTDO(ref 1) this problem is heavily studied as a case of an optimization problem.
+The premise of the problem is thus: given a list of cities and the distances
+between them pick a shortest path that visits each of them exactly once and
+returns to the starting city. 
+
+We chose to use the ant colony optimization to solve this problem. The ant colony
+technique is a probalistic technique that relies on sending out many ants that
+all take random paths, the best path is chosen and is more emphasized for
+the next iteration of ants. Over time this will converge to the best
+solution found. This technique was first discussed by Marco Dorigo in  TODOTODOTDOTDOTDO(ref 2) for his
+PhD thesis. His application was similar to the one we have chosen but the technique
+has been applied to other NP-Hard problems.
+
+\section{Serial ACO Algorithm}
+All ACO algorithms begin with a graph. To begin the algorithm, an ant is placed on each node of the graph.
+At each iteraion of the algorithmm every ant chooses a new node to go to. It does this based on a probabilistic 
+schema. Each edge has two weights. The first weight is proportional to the distance between two cities. The second
+weight is fundamental to the ACO scheme, it is the pheromone weight. The ant picks an edge based on a random roll
+relative to these two weights. These ant choosing iterations are repeated until the ants have completed a full tour
+of the graph. 
+
+Upon all the ants completing a full tour of the graph the ant with the shortest tour is picked and a global decay is
+applied to all the edges' pheromone weights. The algorithm then takes the best ant's tour and adds to the relevant 
+edge's pheromone weight accumulator. The purpose of this step is to emphasis this edge in future ant walks. The algorithm
+is repeated until the ants begin to converge on a result. 
+
+\caption{Serial ACO}
+\begin{algorithmic}[1]
+    \Procedure{ACO}{$g}\Comment{Returns best path in g}
+        \State $ants$ \Comment{Array of ants} 
+        \While{not converged}
+            \ForAll{$ants \to ant$} 
+                \State $ ant.tour $
+            \EndFor
+            \State $ decay\ all\ pheromone\ trails $
+            \State $ find\ best\ ant\ trail $
+            \State $ increment\ all\ edges on\ best\ trail $
+        \EndWhile
+    \EndProcedure
+\end{algorithmic}
+
+\section{Parallel ACO Algorithm}
+There are several modifications that are necessary to transform serial ACO to parallel ACO. The first task
+necessary in parallelizing ACO is the partitioning of the graph. This can be done in a variety of ways but 
+this step is considered pre-processing as it makes sense to process a potentially large graph once and load it
+from the disk when it's needed. Potential partioning schemes include: round robin, clusters distribution, 
+random distribution among other methods.
+
+For our inital implementation, we chose a round robin graph partitioning scheme since it was relatively easy to implement
+and worked well with our implicit graph representation, which uses a hash function to calculate and store distances between
+nodes. Clustering schemes are perhaps better suited to this application since they can reduce the amount of network traffic,
+and speed up the time needed to find a solution.
+
+After partitioning the graph, the ACO algorith is run on each node. During each iteration an ant attempts to make a tour. 
+However, it will inevitably find that it needs to visit a node that is absent from the processor responsible for it. 
+At this point, the ant is sent over to the proper processor. Once it is received there, it joins the rest of the ants
+on that processor in the queue waiting its turn to process. After being sent around to every processor at least once, visiting
+all of the nodes in the graph, the ant has completed its tour. The processors then do a reduce in themselvesto see what ant(s)
+had the best tour. A reduction is then done over all processors that sums the total number of ants that have shortest tours.
+Every processor then expects to receive that many ants minus the number of shortest tour ants that it currently has. This is the
+sync step, now all processors have a copy of the best tour ants. Each processor then updates the pheromone weights using 
+the best ants' tours. 
+
+A somewhat trivial improvement to this algorithm that cannot be done on the Blue Gene is to have threads process the ants in the queue.
+This can be somewhat tricky to implement with all of the coordination that must go on in order to keep the processes from having
+unexpected behavior. 
+
+\caption{Parallel ACO}
+\begin{algorithmic}[1]
+
+    \Procedure{ACO}{$g}\Comment{Returns best path in g}
+        \State $ants\Comment{Array of ants}
+        \While{not converged}
+            
+            \While{every ant has not visited my nodes}
+            
+                \ForAll{$ants \to ant$} 
+                    \State $ ant.tour $
+                \EndFor
+                
+                \State $receive\ new\ ants $
+                \State $add\ new\ ants\ to\ ants\ queue $
+            
+            \EndWhile
+            
+                \State $perform\ reduction\ to\ determine\ smallest\ tour $
+                \State $count = reduction\ sum\ of\ total\ smallest\ tour\ ants $
+                
+                \If{$I\ have\ a\ smallest\ tour\ ant$}
+                    \State $send\ ant\ to\ all $
+                \EndIf
+                \State $ receive\ (\ count\ -\ my\ smallest\ tour\ count\ )\ ants $
+                \State $ decay\ all\ pheromone\ trails $
+                \State $ find\ best\ ant\ trail $
+                \State $ increment\ all\ edges\ on\ best\ trail $
+    
+        \EndWhile
+    \EndProcedure
+    
+    \Procedure{Ant Tour}{$ant}\Comment{Parallel Ant Tour}
+        \While{$ all\ nodes\ not\ visited$}      
+            \State $Determine\ edge$
+            \If{$edge\ is\ not\ on\ processor$}
+                \State $send\ ant\ to\ processor\ with\ edge$
+                \State $break$
+            \EndIf
+            \State $Take\ edge$
+        \EndWhile
+    \EndProcedure
+    
+\end{algorithmic}
+
+\section{Implementation Details}
+Our implementation is in C/MPI, with a preliminary version by Doug in python as a test of the ACO algorithm. A custom hash and queue are both used as a basis for most of the ACO implementation, with mpi serving to synchronize nodes. mpi allreduce is used heavily to find the best pheremone levels & tours across all nodes at the end of each iteration, and non-blocking sends and recieves are used to send ants between nodes and for all other communications. 
+
+\section{Testing and Results}
+We ran tests on both kratos (an x86 machine with upwards of 20 cores and lots of memory), and on the RPI CCNI BlueGene/L. One the BG/L we used a a variable number of cores in VN mode with a maximum of 1024 processors. Results between kratos and the BG/L varied widely, as would be expected; especially when considering the BlueGene's specialized networks which aid in mpi allreduce and message sends and receives.
+
+\section{Comparison to Serial ACO TSP}
+We are able to run our algorithm on a single core, which is a reasonable aproximmation of an optimized serial ACO TSP solution. When we compared a single core run to a multiple core run, the results were obviosuly in favor of parallel ACO-TSP by a long shot. This is to be expected since the problem parallelizes well.
+
+\section{Conclusions}
+HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK 
+
+\section{Future Work}
+While our implementation and exploration are relatively robust and thorough, there are many ways in
+which this project could be further improved and explored. One option that might provide an easy performance
+boost is to use threading (pthreads) in addition to MPI. While we didn't have time to explore this, it is a relatively
+straightforward extension, and on a hardware-threaded system such as BG/Q it might provide significant
+performance boosts.
+
+Another interesting extension to our work is to use genetic algorithms in addition to ACO to further 
+increase the quality of our solution while also allowing the algorithms to run in fewer iterations. Genetic
+algorithms can be usaed to generate string mutations which iteratively create better routes for the ants to follow,
+instead of choosing random routes to start off with.
+
+One of the limitations of our implementation is that we use a round-robin distribution on an implicitly defined graph; 
+this means that not only can an arbitrary explicit graph not be used with our system, but any graph used is not partitioned
+in an optimal manner. As mentioned above, alternative partitioning schemes and support for explicit graphs are two important features that we would add to our system in the future.
+
+One of the last improvements we would like to make to our implementatino is the ability to auto tune certain internal parameters
+of the algorithm based on the quality of the solution desired and the speed at which it is needed. By adjusting the step and decay functions for our pheremone levels (alpha, beta, etc) as well as adjusting the precision of the numbers we use we can greatly affect the runtime performance of our implementation. Since we ran into some issues using floats, we switched to doubles early on, but that decision could be made at runtime depending on the type of solution desired. By auto-tuning all of these parameters our implementation would have much more flexibility; however given the time-frame we had, we were unable to do this.
+
+\section{Acknowledgments}
+We would like to thank professor Carrothers for the feedback he provided to 
+our group during the project, as well as the tips he gave us throughout the
+semester, they were very helpful in completing this project.
+
+\section{Work Distributionn}
+The idea was chosen by all three group members collaboratively, and fleshed out 
+during a group meeting. Most of the coding was done with all three members present,
+with Doug writing most of the code and other members providing input and aiding with
+debugging. The paper was written by all three group members collaboratively, with Ziv
+and Patrick doing most of the actual writing. We spec'd the program out together.
+
+\bibliography{references.bib}  % sigproc.bib is the name of the Bibliography in this case
+
+\balancecolumns
+\end{document}
