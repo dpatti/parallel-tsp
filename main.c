@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 	iterations = 20;
   method = round_robin;
 	parseargs(argc, argv);
-  graph_size = (graph_size / mpi_size + 1) * mpi_size; 
+  graph_size = (graph_size + mpi_size - 1) / mpi_size * mpi_size;
 
   if (verbose)
     debug = stdout;
