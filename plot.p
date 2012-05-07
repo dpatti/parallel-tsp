@@ -1,29 +1,35 @@
 set terminal png
 set logscale x 2
 
-set xlabel "Number of Cores"
-set ylabel "Execution time (s)"
 set title "Blue Gene Cores vs. Total Exec"
+set xlabel "Number of Cores"
+set ylabel "Execution time (s)"
 set output 'graph/bgtotalexec.png'
-plot 'results.dat' using 1:2 with linespoints title 'Time'
+plot 'graph0.dat' using 1:2 with linespoints title '1024 vertices', \
+     'graph0.dat' using 1:3 with linespoints title '4096 vertices', \
+     'graph0.dat' using 1:4 with linespoints title '8192 vertices', \
+     'graph0.dat' using 1:5 with linespoints title '11264 vertices'
 
-
-set xlabel "Number of Cores"
-set ylabel "Execution time (s)"
-set title "Kratos Cores vs. Total Exec"
-set output 'graph/kratostotalexec.png'
-plot 'results.dat' using 1:4 with linespoints title 'Time Per Core'
-
-
-set xlabel "Number of Cores"
-set ylabel "Execution time (s)"
 set title "Kratos Methods Cores vs. Total Exec"
-set output 'graph/kratosmethods.png'
-plot 'results.dat' using 1:5 with linespoints title 'Time'
-
-
 set xlabel "Number of Cores"
 set ylabel "Execution time (s)"
+set output 'graph/kratosmethods.png'
+plot 'graph1.dat' using 1:2 with linespoints title 'Clustering', \
+     'graph1.dat' using 1:3 with linespoints title 'Distance', \
+     'graph1.dat' using 1:4 with linespoints title 'Round Robin'
+
+
+set title "Kratos Cores vs. Total Exec"
+set xlabel "Number of Cores"
+set ylabel "Execution time (s)"
+set output 'graph/kratostotalexec.png'
+plot 'graph2.dat' using 1:2 with linespoints title '4096 vertices', \
+     'graph2.dat' using 1:3 with linespoints title '8192 vertices'
+
+
 set title "Blue Gene Transfer vs. Compute"
+set xlabel "Number of Cores"
+set ylabel "Execution time (s)"
 set output 'graph/bgtransfercompute.png'
-plot 'results.dat' using 1:8 with linespoints title 'Read/Write Time', 'results.dat' using 1:6 with linespoints title 'Read Time', 'results.dat' using 1:7 with linespoints title 'Write Time'
+plot 'graph3.dat' using 1:2 with linespoints title 'Compute Time', \
+     'graph3.dat' using 1:3 with linespoints title 'Transfer Time'

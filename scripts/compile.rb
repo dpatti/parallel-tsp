@@ -42,7 +42,7 @@ File.open("results.dat") do |f|
     end
     [graph1, graph2, graph3, graph4].each_with_index do |g, i|
         File.open("graph%d.dat" % i, "w") do |f|
-            g.each do |cores, graph|
+            g.sort_by{|a,b| a.to_i}.each do |cores, graph|
                 f << cores + "\t" + graph.to_a.sort.map{|i,v| v}.join("\t") + "\n"
             end
         end
