@@ -34,19 +34,25 @@ void graph_destroy(edge_t **mem, int local_nodes) {
   free(mem);
 }
 
-// round robin distribution
+static int local_offset = -1;
+
+#define SET_OFFSET()  if (local_offset == -1) local_offset = graph_size / mpi_size * mpi_rank + MIN(mpi_rank, graph_size % mpi_size)
+
 // Local vertex identifier
 int get_local_index(int node_id) {
   assert(node_id >= 0 && node_id < graph_size);
-  return node_id / mpi_size;
+  SET_OFFSET();
+  return node_id - local_offset;
 }
 // Global vertex identifier
 int get_node_id(int local_index) {
   assert(local_index >= 0 && local_index < local_nodes);
-  return mpi_rank + local_index * mpi_size;
+  SET_OFFSET();
+  return local_index + local_offset;
 }
 // Global vertex identifier to MPI rank
+// XXX: Requires cores to be multiple of ranks
 int get_rank(int node_id) {
   assert(node_id >= 0 && node_id < graph_size);
-  return node_id % mpi_size;
+  return node_id / local_nodes;
 }

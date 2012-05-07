@@ -16,7 +16,12 @@ void parseargs(int argc, char *argv[]){
 			++i;
 		}
 		else if(strcmp(argv[i], "--dist_method") == 0) {
-			
+      if (strcmp(argv[i+1], "round_robin") == 0)
+        method = round_robin;
+      else if (strcmp(argv[i+1], "distance") == 0)
+        method = distance;
+      else if (strcmp(argv[i+1], "clustering") == 0)
+        method = clustering;
 			++i;
 		}
 		else if(strcmp(argv[i], "--iterations") == 0) {

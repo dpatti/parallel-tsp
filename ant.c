@@ -73,7 +73,7 @@ void ant_choose(ant_t *ant) {
   printf("Total chance: %0.30f\n", total_chance);
   printf("Chance left:  %0.30f\n", chance);
   for (i = 0; i < graph_size; i++)
-    printf("%c%02d %.12f : %.12f / %d\n", edge_chances[i]==0?'!':' ', i, edge_chances[i], graph_edges[get_local_index(ant->current_node)][i].pheromone, edge_hash(get_local_index(ant->current_node), i));
+    printf("%c%02d %.12f : %.12f / %d\n", graph_edges[get_local_index(ant->current_node)][i].pheromone==0?'!':' ', i, edge_chances[i], graph_edges[get_local_index(ant->current_node)][i].pheromone, edge_hash(get_local_index(ant->current_node), i));
   exit(1);
 }
 

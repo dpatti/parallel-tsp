@@ -21,17 +21,23 @@ int main(int argc, char *argv[]) {
   MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
+  hash_method[round_robin] = hash_round_robin;
+  hash_method[distance]    = hash_distance;
+  hash_method[clustering]  = hash_clustering;
+
   // Parse command line arguments
   graph_size = DEFAULT_GRAPH;
   ant_count = DEFAULT_GRAPH;
 	iterations = 20;
+  method = round_robin;
 	parseargs(argc, argv);
+  graph_size = (graph_size / mpi_size + 1) * mpi_size; 
 
-  // Shit is bugged
   if (verbose)
     debug = stdout;
   else
     debug = fopen("/dev/null", "w");
+  // Shit is bugged
   // // Set up a new file descriptor(3) and handle(debug) for debug
   // dup2(1, 3);
   // debug = fdopen(3, "a");
@@ -123,7 +129,7 @@ int main(int argc, char *argv[]) {
 
   if (mpi_rank == 0){
     printf("Best solution was %d found %d times; first on tour %d\n", best_tour, best_ct, best_iter);
-    printf("Ant size:       %lu\n", ANT_T_SIZE);
+    printf("Ant size:       %u\n", ANT_T_SIZE);
     printf("Ant transfers:  %d\n", send_count);
     printf("Total time:     %.3lfs\n", timer_get(total_time));
     printf("  Compute time:   %.3lfs\n", timer_get(compute_time));

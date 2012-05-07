@@ -19,10 +19,11 @@
 #endif
 #define TRUE  1
 #define FALSE 0
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
 #define INITIAL_PHEROMONE 0.1   // Parameter: Initial pheromone trail value
 #define ALPHA             1     // Parameter: Likelihood of ants to follow pheromone trails (larger value == more likely)
-#define BETA              2     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
+#define BETA              6     // Parameter: Likelihood of ants to choose closer nodes (larger value == more likely)
 #define LOCALDECAY        0.2   // Parameter: Governs local trail decay rate [0, 1]
 #define LOCALUPDATE       0.4   // Parameter: Amount of pheromone to reinforce local trail update by
 #define GLOBALDECAY       0.2   // Parameter: Governs global trail decay rate [0, 1]
@@ -50,6 +51,8 @@ typedef struct {
   phero_t pheromone;
 } edge_t;
 
+typedef enum {round_robin, distance, clustering, num_hashes} hash_t;
+
 // Globals
 int mpi_rank, mpi_size;
 edge_t **graph_edges;
@@ -60,6 +63,7 @@ int send_count;
 int graph_size;
 int ant_count;
 int iterations;
+hash_t method;
 int verbose; FILE *debug;
 
 // Timers
@@ -69,8 +73,11 @@ void timer_stop(timer);
 double timer_get(timer);
 
 // Hash functions
-unsigned elf_hash(void *key, int len);
 unsigned edge_hash(int a, int b);
+int (*hash_method[num_hashes])(int, int);
+int hash_round_robin(int a, int b);
+int hash_distance(int a, int b);
+int hash_clustering(int a, int b);
 
 // Graph functions
 edge_t **graph_allocate(int local_nodes, int total_nodes);
