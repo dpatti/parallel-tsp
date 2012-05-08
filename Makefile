@@ -35,8 +35,7 @@ kratos: all
 	mpirun -np 8 ./aco --graph_size 1024 --iterations 1000 > kratos.out
 
 pdf:
-	make tex/make pdf
-	pdflatex tex/main.tex
+	cd tex; make
 
 parse:
 	-$(RM) out/results.dat
