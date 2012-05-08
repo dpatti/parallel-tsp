@@ -60,6 +60,38 @@ solution found. This technique was first discussed by Marco Dorigo in \citep{opt
 PhD thesis. His application was similar to the one we have chosen but the technique
 has been applied to other NP-Hard problems.
 
+\section{Review of Related Work}
+The first paper we found relating to our project is \textit{A Parallel Implementation of Ant Colony Optimization}\cite{Randall20021421}. This paper does a thorough job in overviewing 
+the various methods of parallelizing ACO. They mention independent ant colonies, which essentially runs the problem from several start points and then picks the best answer out of all of them 
+(the embarassingly parallel solution). The second scheme they discuss is the same as the first, except the best trails are synchronized across all of the different problem sets. Another scheme is
+a master/slave approach with the processor being the master and the ant being the slave. In this case the master assigns the slave to a processor in which to do its entire bit of processing. The master then
+is in charge of synching the overall graphs. This approach seems to lend itself to shared memory architectures but can be done with message passing. The fourth scheme does an analysis of available solution elements
+before selecting one (rather than just at random). The fifth combines the fourth and third solution. None of these approaches are quite like what we have done in our paper in that none of them partition the graph
+and send the ants across processors. This paper also only tests graph sizes up to 657, this pales in comparison to the 1k-12k graphs we ran our algorithm on. This paper also observed some strong scaling properties
+of their algorithms as the processor counts used increased. In summarizing this paper also details the best scenarios to use each of the five schemes it had been investigating. 
+
+In a similar study at the Universit\'{e} Libre de Bruxelles \citep{Bruxelles2006}, a
+slightly different approach was taken. The entire graph was duplicated among
+each core as a different $colony$, at which point multiple simultaneous
+simulations were run and results were communicated using a variety of
+techniques. In one method, each colony communicates to each other by using a
+single master colony to collect and broadcast results so that every other colony
+may synchronize. In a similar method, instead of the master broadcasting the
+best result to everyone, it only sends it to the colony that performed the worst
+so that it may replace it. Two more strategies involve different topologies of
+communication: the ring and hypercube. In these, each colony only shares results
+with its neighboring colonies to try and create a best result. The final method
+is the most trivial, and that is to have each colony execute entirely by itself,
+and then finally communicate results at the end to see which was the most
+successful. The results among all parallel implementations were more effective
+than the serial version; however, it was noted that the independent runs were
+the most efficient in terms of time. It was suggested that a compromise be made
+between the best-so-far update and the low-communication independent runs so
+that synchronization is only done when the best colony's optimal tour exceeds
+another's by a certain threshold.
+
+
+
 \section{Serial ACO Algorithm}
 All ACO algorithms begin with a graph. To begin the algorithm, an ant is placed on each node of the graph.
 At each iteraion of the algorithmm every ant chooses a new node to go to. It does this based on a probabilistic 
@@ -83,7 +115,7 @@ is repeated until the ants begin to converge on a result.
             \EndFor
             \State $ decay\ all\ pheromone\ trails $
             \State $ find\ best\ ant\ trail $
-            \State $ increment\ all\ edges on\ best\ trail $
+            \State $ increment\ all\ edges\ on\ best\ trail $
         \EndWhile
     \EndProcedure
 \end{algorithmic}
@@ -104,7 +136,7 @@ After partitioning the graph, the ACO algorith is run on each node. During each 
 However, it will inevitably find that it needs to visit a node that is absent from the processor responsible for it. 
 At this point, the ant is sent over to the proper processor. Once it is received there, it joins the rest of the ants
 on that processor in the queue waiting its turn to process. After being sent around to every processor at least once, visiting
-all of the nodes in the graph, the ant has completed its tour. The processors then do a reduce in themselvesto see what ant(s)
+all of the nodes in the graph, the ant has completed its tour. The processors then do a reduce amongst themselves to see which ant(s)
 had the best tour. A reduction is then done over all processors that sums the total number of ants that have shortest tours.
 Every processor then expects to receive that many ants minus the number of shortest tour ants that it currently has. This is the
 sync step, now all processors have a copy of the best tour ants. Each processor then updates the pheromone weights using 
@@ -160,21 +192,123 @@ unexpected behavior.
 \end{algorithmic}
 
 \section{Implementation Details}
-Our implementation is in C/MPI, with a preliminary version by Doug in python as a test of the ACO algorithm. A custom hash and queue are both used as a basis for most of the ACO implementation, with mpi serving to synchronize nodes. mpi allreduce is used heavily to find the best pheremone levels and tours across all nodes at the end of each iteration, and non-blocking sends and recieves are used to send ants between nodes and for all other communications. 
+The first step in implementation was to create a throwaway prototype in Python
+in order to assist in getting an understanding of a serial ACO algorithm. This
+used a simple adjacency matrix and allowed us to tune parameters to find a
+suitable reference for our main implementation. 
+
+Our main implementation is written in C/MPI. The most essential components of
+the ACO algorithm in the program is the partial adjacency matrix holding the
+pheromone levels and the ants themselves, which must be transferred from core to
+core. Firstly, the adjacency matrix is not a full one, so each core only has a
+slice of the matrix equal to one full row for each vertex of the graph that
+belongs to it. Each cell of the matrix contains a double type store for the
+pheromone level. Because this is a full matrix being divided between cores, it
+means the memory scaling of the edge matrix is $O(n^2)$.
+
+The adjacency matrix does not actually store the weights; those are calculated
+using a deterministic algorithm that is meant to produce weights during
+computation. Any two nodes will always produce the same edge weight with this
+method. This was a compromise from reading in a file from disk, mainly because
+not only would the file occupy a large amount of the file system for a
+significant graph, as it would be close to 40 gigabytes for a full core's worth
+of data, but also because it was not a very important element of the problem. 
+
+We did create a few different algorithms to simulate different partitioning
+systems. First was the round robin method, which was designed to give very edge
+weights completely unrelated to the nodes that were supplied, i.e., it was
+almost a deterministic random edge distribution. On the other hand, the distance
+method returns smaller weights for nodes that are numerically closer to each
+other, and because cores are given sequential nodes of the graph, they have a
+higher tendency to stay within the core than to jump back and forth. The final
+method, clustering, was an experiment to accentuate the distance method and
+additionally penalize nodes that were specifically not part of the current
+core's node cluster.
+
+The other essential component was the ant object. We allocate enough ants for
+each graph node on each core, but in addition to that, a buffer of ant objects
+are allocated so that cores may receive more ants at any given time. This helps
+keep communication blocking time low. This contiguous block of memory is
+populated with a few details about the ant's first and current position, but in
+addition to that it contains an array of integers equal to the number of nodes
+in the graph. This is important, as the ant is passed from core to core using
+MPI, and when it reaches its destination, it must know which edges it can take.
+This means that the size requirement for a single ant is $O(n)$. If the number
+of ants is set equal to the number of vertices, the total cost of all ants is
+$O(n^2)$.
+
+The array of elements that is part of the ant's path is organized in a way to
+solve two computational problems in $O(1)$ time. Firstly, when an ant reaches a
+node and must select an edge to take, it must ignore each of the edges that
+it has taken already. As it computes the probability of taking each edge, it can
+look up the edge index in its array using random access to test. While this is
+simple, there is a caveat. The ant that is the most successful must retour its
+path at the end of the iteration, and so the explicit order of the nodes must be
+known. To solve this, when an ant picks an edge to cross, it stores the id of
+the node it is departing towards as the value of the array at the index of the
+node which it is leaving from. This way, it works similar to a linked list,
+where you can always find the next node given the previous in $O(1)$ time.
+
+To organize the flow of ants, two data structures are used: queues and arrays.
+The three queues we use are meant to separate ants based on where they are
+currently located. The spare queue is where each ant starts out, the process
+queue contains ants who are looking for another edge to augment their path, and the
+finished queue is for your original ants that have completed their tour and are
+waiting to be scored. All unused ants are left in the spare queue, and this is
+where the communication module draws from so that it may receive ants from other
+cores into the pre-allocated space. 
+
+For communication between cores, an array was used. The primary benefit of this
+is the easy access to the MPI\_Testsome() call, which takes an array of requests
+and returns the ones that have completed. The array starts out with one index
+for each ant allocated, and each request object is set to a null request, so
+that MPI will ignore those indices when checking for data. A few other arrays
+are created to hold data in a similar fashion for each request index: request
+type and ant object pointer. Because this single array is used for all
+communication, the request type signifies whether the ant is being sent or
+received. The ant object pointer simply holds on to a reference of the space in
+memory while the operation is being completed, after which the pointer will be
+returned to the spare queue. The ants are placed into the array for
+communication using a rotating index that increments each time a spot is used
+and wraps around to the first index when it reaches the end. Because transfers
+do not take a deterministic amount of time, the index will always scan for an
+empty index to populate in this same manner. 
+
+Communication is done on a by-call manner. Non-blocking receives are initiated
+every loop based on certain parameters. Currently, no more than a set number
+of requests are opened at any given time, which prevents scenarios where
+hundreds of ant requests are left unfulfilled and inevitably cancelled at the end
+of the iteration. Sends are always initiated by the ACO cycle when it decides
+that an ant will be transferred to a new core.
+
+At the end of an iteration, each core tallies the scores for its ants, and that
+score is reduced as a sum and as a minimum between all cores. The sum allows us
+to find the average tour length of all the ants, while the minimum specifies the
+ant with the best tour of that iteration. Each core checks to see if it has any
+ants with that tour length, and this count is reduced so that each core knows
+how many ants found the best tour of that iteration. The ants are sent to each
+other's cores simultaneously, at which point the core can adjust the pheromone
+levels from its nodes on the edges that the ant took. This is the crucial
+synchronization step of the ACO algorithm. 
+
+At this point, all ants are back in the spare queue, the initial ants are reset
+for each core, and the simulation begins another iteration. When all iterations
+are complete, a summary of statistics is generated, and the allocated memory is
+freed before the program exits. \\ \\
 
 \section{Testing and Results}
-We ran a battery of testing configurations on both Kratos and the IBM Blue Gene L at the CCNI. To get a wide survey of our algorithm's performance we tested all three graph partitioning methods on Kratos. Taking the best
+We ran a battery of testing configurations on both Kratos and the IBM BlueGene/L at the CCNI. To get a wide survey of our algorithm's performance we tested all three graph partitioning methods on Kratos. Taking the best
 performing method and using that to test on the Blue Gene in order to alleviate the potential of running over the 10 minute execution time limit. On Kratos we ran a graph of 4,096 nodes on 5 different 
 processor configurations: 1, 2, 4, 8, and 16. We ran these runs using each of our three partioning schemes: round robin, distance, and clustering. We then took the best perfoming method out of these tests
 and ran an 8,192 node graph using all of the above listed processor configurations. An important note to our results is that Kratos is time to complete 10 iterations of our algorithm. On the Blue Gene we timed only one iteration to ensure that we could run the largest processor counts as well as the smallest processor counts in the limit. The results of these runs are present in the graphs below.
 
 \begin{figure}[h!]
-    \includegraphics[scale=0.38]{kratostotalexec.png}
+    \includegraphics[scale=0.39]{kratostotalexec.png}
     \caption{Total Execution Time vs. Core Count on Kratos using distance partioning}
 \end{figure}
 
 \begin{figure}[h!]
-    \includegraphics[scale=0.38]{kratosmethods.png}
+    \includegraphics[scale=0.39]{kratosmethods.png}
     \caption{Total Execution Time vs. Method/Cores on Kratos on 4,096 nodes}
 \end{figure}
 
@@ -187,19 +321,24 @@ transfered on its next move. The clustering scheme works well for relatively sma
 three methods give competitive times for the 16 core case. Further testing on larger graph sizes is required to really see how these partioning schemes affect performance.
 
 \begin{figure}[h!]
-    \includegraphics[scale=0.38]{bgtransfercompute.png}
+    \includegraphics[scale=0.39]{bgtransfercompute.png}
     \caption{Blue Gene Blocking Time vs. Computation Time}
 \end{figure}
 
 \begin{figure}[h!]
-    \includegraphics[scale=0.38]{bgtotalexec.png}
+    \includegraphics[scale=0.39]{bgtotalexec.png}
     \caption{Blue Gene Total Execution time vs. Core Count - various graph sizes}
 \end{figure}
 
-We see in the computation time vs. transfer time (message passing time) that transfer time is clearly the bottleneck in the performance of our algorithm. These Blue Gene results utilize the clustering partioning method.
+We see in the computation time vs. transfer time (blocking time: message passing time) that transfer time is clearly the bottleneck in the performance of our algorithm. These Blue Gene results utilize the clustering partioning method.
 The rational behind using this method is that it performed best on Kratos, and that we want to choose the method with the overall lesser amount of ant transfers on average which the distance method delivers. As expected
 the time spent computing drops linearly with the amount of cores, as the amount of processing done relative to transfers as the core count increases becomes small. Looking at the total execution time vs. cores for various
-problem sizes on the Blue Gene it is important to note that the TODO VIRTUAL MODE DISCUSSION
+problem sizes on the Blue Gene it is important to note the graph below regarding VN mode vs. Normal Mode. This is important because it helps to explain the seemingly anomalous result we receive at the 1024 core execution (that can only take place in VN mode). We observe that there is an overhead associated with VN mode causing a performance drop and presumably that large spike at 1024 cores. Disregarding the 1024 point a decrease in execution time is associated with an increase in the number of cores used. This, along with the Kratos results, leads us to believe that our algorithm experiences a strong scaling effect with the number of cores
+
+\begin{figure}[h!]
+    \includegraphics[scale=0.39]{bgvntime.png}
+    \caption{Blue Gene Normal Mode vs. VN Mode}
+\end{figure}
 
 An interesting observation of the tests that we ran is that the Blue Gene is out performed by Kratos for the problem sizes that we used. The assumption being that we did not achieve proper graph size to core count
 ratios to maximize the Blue Gene, implying that there is an optimization problem to maximize the algorithm in the problem size to core ratio. It is also important to realize that we are not saturating Kratos' bandwidth
@@ -244,7 +383,7 @@ One of the last improvements we would like to make to our implementatino is the 
 of the algorithm based on the quality of the solution desired and the speed at which it is needed. By adjusting the step and decay functions for our pheremone levels (alpha, beta, etc) as well as adjusting the precision of the numbers we use we can greatly affect the runtime performance of our implementation. Since we ran into some issues using floats, we switched to doubles early on, but that decision could be made at runtime depending on the type of solution desired. By auto-tuning all of these parameters our implementation would have much more flexibility; however given the time-frame we had, we were unable to do this.
 
 \section{Acknowledgments}
-We would like to thank professor Carrothers for the feedback he provided to 
+We would like to thank professor Carothers for the feedback he provided to 
 our group during the project, as well as the tips he gave us throughout the
 semester, they were very helpful in completing this project.
 
@@ -257,6 +396,9 @@ and Patrick doing most of the actual writing. Each step of the algorithm was wri
 in comments in the source files to be filled out later. All group members participated in this
 pseudo-coding step of our process. 
 
+\section{Further Notes}
+The source code to our project can be found in \\
+$/home/parallel/2012/PPCpattid2/project/$ on Kratos. Also present is a read me and the raw data for our graphs. 
 
 \bibliographystyle{plain}
 \bibliography{references}

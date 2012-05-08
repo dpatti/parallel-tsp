@@ -206,7 +206,7 @@
 \@itempenalty     -\@lowpenalty % Between list items.
 
 %\@namedef{ds@10pt}{\@latexerr{The `10pt' option is not allowed in the `acmconf'
-\@namedef{ds@10pt}{\ClassError{The `10pt' option is not allowed in the `acmconf'	% January 2008
+\@namedef{ds@10pt}{\ClassError{The `10pt' option is not allowed in the `acmconf'    % January 2008
   document style.}\@eha}
 %\@namedef{ds@11pt}{\@latexerr{The `11pt' option is not allowed in the `acmconf'
 \@namedef{ds@11pt}{\ClassError{The `11pt' option is not allowed in the `acmconf'	% January 2008
@@ -832,15 +832,7 @@
 %%%
 \newtoks\copyrightnotice
 \def\ftype@copyrightbox{8}
-\def\@copyrightspace{
-\@float{copyrightbox}[b]
-\begin{center}
-\setlength{\unitlength}{1pc}
-\begin{picture}(20,6) %Space for copyright notice
-\put(0,-0.95){\crnotice{\@toappear}}
-\end{picture}
-\end{center}
-\end@float}
+\def\@copyrightspace{}
 
 \def\@toappear{} % Default setting blank - commands below change this.
 \long\def\toappear#1{\def\@toappear{\parbox[b]{20pc}{\baselineskip 9pt#1}}}
@@ -1666,5 +1658,3 @@
 
 \endinput
 %
-
-
