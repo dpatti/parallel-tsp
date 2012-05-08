@@ -11,11 +11,12 @@ File.open(ARGV[0]) do |f|
     # Graph 0 - Bluegene with x:cores, y:time, series:[1024, 4096, 8192, 11264]
     g = {}
     runs.each do |run|
-        if run['System'] == 'Bluegene' and (run['VN?'] == 'no' or run['Graph'] == '1024')
+        if run['System'] == 'Bluegene' and run['VN?'] == 'no' and run['Ants'] == '512'
             g[run['Cores']] ||= {}
             g[run['Cores']][run['Graph'].to_i] = run['Total']
         end
     end
+    puts g
     graphs << g
 
     # Graph 1 - Kratos with x:cores, y:time, series:[clustering, distance, round_robin] where graph_size=4096

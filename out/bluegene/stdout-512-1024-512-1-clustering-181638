@@ -1,0 +1,9 @@
+Iteration    0 | Best tour: 131331, average tour: 134913.82
+Best solution was 131331 found 1 times; first on tour 0
+Ant size:       4116
+Ant transfers:  985
+Total time:     27.145s
+  Compute time:   0.617s
+  Transfer time:  26.528s
+  ACO time:       25.544s
+  Sync time:      1.598s
