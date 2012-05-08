@@ -1,6 +1,7 @@
 % // final project report / paper
 
 \documentclass{acm_proc_article-sp}
+\usepackage{natbib}
 \usepackage{algpseudocode}
 
 \begin{document}
@@ -8,7 +9,7 @@
 \title{Making Ant Colony Optimization Parallel}
 %\subtitle{[Extended Abstract]
 
-\numberofauthors{300} 
+\numberofauthors{3} 
 
 \author{
 \alignauthor
@@ -46,7 +47,7 @@ at RPI.
 Computationally hard problems commonly come up when attempting to solve
 useful and practical problems. One such problem is the traveling salesman 
 problem. This is a well known problem in the computer science community. Formulated
-in 1930 TODOTODOTDOTDOTDO(ref 1) this problem is heavily studied as a case of an optimization problem.
+in 1930 \citep{graphtheory} this problem is heavily studied as a case of an optimization problem.
 The premise of the problem is thus: given a list of cities and the distances
 between them pick a shortest path that visits each of them exactly once and
 returns to the starting city. 
@@ -55,7 +56,7 @@ We chose to use the ant colony optimization to solve this problem. The ant colon
 technique is a probalistic technique that relies on sending out many ants that
 all take random paths, the best path is chosen and is more emphasized for
 the next iteration of ants. Over time this will converge to the best
-solution found. This technique was first discussed by Marco Dorigo in  TODOTODOTDOTDOTDO(ref 2) for his
+solution found. This technique was first discussed by Marco Dorigo in \citep{optimization} for his
 PhD thesis. His application was similar to the one we have chosen but the technique
 has been applied to other NP-Hard problems.
 
@@ -117,7 +118,7 @@ unexpected behavior.
 \begin{algorithmic}[1]
 
     \Procedure{ACO}{$g}\Comment{Returns best path in g}
-        \State $ants\Comment{Array of ants}
+        \State $ants$\Comment{Array of ants}
         \While{not converged}
             
             \While{every ant has not visited my nodes}
@@ -145,7 +146,7 @@ unexpected behavior.
         \EndWhile
     \EndProcedure
     
-    \Procedure{Ant Tour}{$ant}\Comment{Parallel Ant Tour}
+    \Procedure{Ant Tour}{$ant$}\Comment{Parallel Ant Tour}
         \While{$ all\ nodes\ not\ visited$}      
             \State $Determine\ edge$
             \If{$edge\ is\ not\ on\ processor$}
@@ -159,18 +160,71 @@ unexpected behavior.
 \end{algorithmic}
 
 \section{Implementation Details}
-Our implementation is in C/MPI, with a preliminary version by Doug in python as a test of the ACO algorithm. A custom hash and queue are both used as a basis for most of the ACO implementation, with mpi serving to synchronize nodes. mpi allreduce is used heavily to find the best pheremone levels & tours across all nodes at the end of each iteration, and non-blocking sends and recieves are used to send ants between nodes and for all other communications. 
+Our implementation is in C/MPI, with a preliminary version by Doug in python as a test of the ACO algorithm. A custom hash and queue are both used as a basis for most of the ACO implementation, with mpi serving to synchronize nodes. mpi allreduce is used heavily to find the best pheremone levels and tours across all nodes at the end of each iteration, and non-blocking sends and recieves are used to send ants between nodes and for all other communications. 
 
 \section{Testing and Results}
-We ran tests on both kratos (an x86 machine with upwards of 20 cores and lots of memory), and on the RPI CCNI BlueGene/L. One the BG/L we used a a variable number of cores in VN mode with a maximum of 1024 processors. Results between kratos and the BG/L varied widely, as would be expected; especially when considering the BlueGene's specialized networks which aid in mpi allreduce and message sends and receives.
+We ran a battery of testing configurations on both Kratos and the IBM Blue Gene L at the CCNI. To get a wide survey of our algorithm's performance we tested all three graph partitioning methods on Kratos. Taking the best
+performing method and using that to test on the Blue Gene in order to alleviate the potential of running over the 10 minute execution time limit. On Kratos we ran a graph of 4,096 nodes on 5 different 
+processor configurations: 1, 2, 4, 8, and 16. We ran these runs using each of our three partioning schemes: round robin, distance, and clustering. We then took the best perfoming method out of these tests
+and ran an 8,192 node graph using all of the above listed processor configurations. An important note to our results is that Kratos is time to complete 10 iterations of our algorithm. On the Blue Gene we timed only one iteration to ensure that we could run the largest processor counts as well as the smallest processor counts in the limit. The results of these runs are present in the graphs below.
+
+\begin{figure}[h!]
+    \includegraphics[scale=0.38]{kratostotalexec.png}
+    \caption{Total Execution Time vs. Core Count on Kratos using distance partioning}
+\end{figure}
+
+\begin{figure}[h!]
+    \includegraphics[scale=0.38]{kratosmethods.png}
+    \caption{Total Execution Time vs. Method/Cores on Kratos on 4,096 nodes}
+\end{figure}
+
+Taking a closer look at the Kratos results we can see that our implementation exhibits strong scaling qualities. For case of 4,096 nodes vs. execution time (red line) it is shown that for a problem of this size
+the algorithm gets faster as more cores are added, but it is not a very dramatic improvement. As we scale up the problem size to 8,192 the scaling properties of our algorithm begin to show through. From the serial
+version of almost 900 seconds is cut to less than 200 seconds using 16 cores. The trend of this line exhibits the excellent time reductions given by additional processors. With the scaling propertiees of the algorithm
+being demonstrated in the first graph, the second shows demonstrates the difference made by using other partioning techniques. In general we see that the round robin partioning scheme yields the worst performance. The
+cause of this is the number of times ants have to cross cores. With the round robin scheme there is no sense of order to the nodes in each processor, thus each ant has a higher probability of needing to be 
+transfered on its next move. The clustering scheme works well for relatively small core counts but is beat out in the end by the distance method. However, it is interesting to note that on the graph size of 4,096 all
+three methods give competitive times for the 16 core case. Further testing on larger graph sizes is required to really see how these partioning schemes affect performance.
+
+\begin{figure}[h!]
+    \includegraphics[scale=0.38]{bgtransfercompute.png}
+    \caption{Blue Gene Blocking Time vs. Computation Time}
+\end{figure}
+
+\begin{figure}[h!]
+    \includegraphics[scale=0.38]{bgtotalexec.png}
+    \caption{Blue Gene Total Execution time vs. Core Count - various graph sizes}
+\end{figure}
+
+We see in the computation time vs. transfer time (message passing time) that transfer time is clearly the bottleneck in the performance of our algorithm. These Blue Gene results utilize the clustering partioning method.
+The rational behind using this method is that it performed best on Kratos, and that we want to choose the method with the overall lesser amount of ant transfers on average which the distance method delivers. As expected
+the time spent computing drops linearly with the amount of cores, as the amount of processing done relative to transfers as the core count increases becomes small. Looking at the total execution time vs. cores for various
+problem sizes on the Blue Gene it is important to note that the TODO VIRTUAL MODE DISCUSSION
+
+An interesting observation of the tests that we ran is that the Blue Gene is out performed by Kratos for the problem sizes that we used. The assumption being that we did not achieve proper graph size to core count
+ratios to maximize the Blue Gene, implying that there is an optimization problem to maximize the algorithm in the problem size to core ratio. It is also important to realize that we are not saturating Kratos' bandwidth
+in sending ants across the network, meaning that processor speed is more important in the test battery that we used in testing than the speed of the network.
 
 \section{Comparison to Serial ACO TSP}
-We are able to run our algorithm on a single core, which is a reasonable aproximmation of an optimized serial ACO TSP solution. When we compared a single core run to a multiple core run, the results were obviosuly in favor of parallel ACO-TSP by a long shot. This is to be expected since the problem parallelizes well.
+Our algorithm is written such that it takes advantage of n cores, from 1 to k, where k is the maximum number of cores available to the system. Large problem sizes will have difficulty fitting on a single core's
+worth of memory. Our algorithm is intended to require less memory per processor as the number of processors increases, so the more processors you have the bigger the problem size you can handle even if each processor
+has a relatively small amount of memory. From the graphs above, we can see that the parallelized version was successful at least as far as outperforming its serial competitor; the parallel version being
+roughly 7 times faster on the largest test case that was run on Kratos. 
 
 \section{Conclusions}
-HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK HOLY SHIT IT GOT SLOWER, FUCK 
+The Ant Colony Optimization problem sets out to solve an NP-hard problem, giving little hope to a well scaling serial solution. We set out to adapt this algorithm to the parallel programming domain by splitting up the graph problem into process sized chunks. By spliting up the graph we necessarily complicate the problem slightly by requiring a communication scheme that allows us to maintain an ant taking a complete tour across the graph by moving between the processes. It is also required that we can sync the best trail across all of the partial graphs. 
+
+We believe that we have met the requirements that we had set forth for ourselves on this project, and while we never got to attempt to see how our algorithm works on our theoretical Blue Gene memory limit of around 120,000 nodes the tests performed gave us a good idea of how well our implementation actually works. We have seen from the results sections that on the whole the algorithm had more impressive completion times on Kratos and that our
+scaling properties were very well pronounced on that system. The results we have obtained from the Blue Gene show a general trend of improvement as the core count increased we speculate that the problem sizes tested 
+were not properly scaled to the processor counts we had accesss to.
+
 
 \section{Future Work}
+The first avenue of future work for this project is to more thoroughly test our implementation. Ideally, we would acquire more processing time on the Blue Gene and work out some discrepencies we had been observing in
+VN mode runs vs. non-VN mode runs with VN mode hindering algorithm performance. With the 700mHz processors in the Blue Gene we cannot get through one iteration of problem sizes > 18k nodes in 10 minutes. These larger problem
+runs can give us better insight as to how the algorithm performs on the Blue Gene as a whole, considering that our smaller problem size results were better overall on Kratos we would like to scale out to problems
+that could not fit on Kratos.
+
 While our implementation and exploration are relatively robust and thorough, there are many ways in
 which this project could be further improved and explored. One option that might provide an easy performance
 boost is to use threading (pthreads) in addition to MPI. While we didn't have time to explore this, it is a relatively
@@ -199,9 +253,14 @@ The idea was chosen by all three group members collaboratively, and fleshed out
 during a group meeting. Most of the coding was done with all three members present,
 with Doug writing most of the code and other members providing input and aiding with
 debugging. The paper was written by all three group members collaboratively, with Ziv
-and Patrick doing most of the actual writing. We spec'd the program out together.
+and Patrick doing most of the actual writing. Each step of the algorithm was written out
+in comments in the source files to be filled out later. All group members participated in this
+pseudo-coding step of our process. 
 
-\bibliography{references.bib}  % sigproc.bib is the name of the Bibliography in this case
+
+\bibliographystyle{plain}
+\bibliography{references}
 
 \balancecolumns
+
 \end{document}
