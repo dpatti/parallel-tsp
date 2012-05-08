@@ -1,5 +1,5 @@
 NAME=aco
-SRC=main.c parseargs.c hash.c graph.c ant.c comm.c queue.c timers.c
+SRC=src/main.c src/parseargs.c src/hash.c src/graph.c src/ant.c src/comm.c src/queue.c src/timers.c
 OBJ=$(SRC:.c=.o)
 CFLAGS=-Wall -g -O3 -rdynamic
 RM=rm -f
@@ -49,7 +49,7 @@ compile:
 	gnuplot < scripts/plot.p
 
 clean:
-	-$(RM) *.o
+	-$(RM) src/*.o
 	-$(RM) tex/*.aux
 	-$(RM) tex/*.log
 	-$(RM) tex/*.pdf

@@ -19,13 +19,21 @@ plot 'graph/graph1.dat' using 1:2 with linespoints title 'Clustering', \
      'graph/graph1.dat' using 1:3 with linespoints title 'Distance', \
      'graph/graph1.dat' using 1:4 with linespoints title 'Round Robin'
 
+set title "Kratos Cores vs. Total Exec"
+set xlabel "Number of Cores"
+set ylabel "Execution time (s)"
+set output 'graph/png/kratostotalexec-logscale.png'
+plot 'graph/graph2.dat' using 1:2 with linespoints title '4096 vertices', \
+     'graph/graph2.dat' using 1:3 with linespoints title '8192 vertices'
 
 set title "Kratos Cores vs. Total Exec"
 set xlabel "Number of Cores"
 set ylabel "Execution time (s)"
+unset logscale y
 set output 'graph/png/kratostotalexec.png'
 plot 'graph/graph2.dat' using 1:2 with linespoints title '4096 vertices', \
      'graph/graph2.dat' using 1:3 with linespoints title '8192 vertices'
+set logscale y 2
 
 set title "Blue Gene Blocking vs. Compute"
 set xlabel "Number of Cores"
