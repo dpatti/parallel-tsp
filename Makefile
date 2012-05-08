@@ -1,5 +1,6 @@
 NAME=aco
 SRC=main.c parseargs.c hash.c graph.c ant.c comm.c queue.c timers.c
+SRC=$(SRC:^=src/)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-Wall -g -O3 -rdynamic
 RM=rm -f
@@ -15,7 +16,7 @@ bluegene:
 # Queues the batch script on the BlueGene
 queue:
 	mkdir -p out
-	sbatch -p bigmem --nodes 512 -t 10 -o ./out/lastrun ./blue_gene_run.sh 128
+	sbatch -p bigmem --nodes 512 -t 10 -o ./out/lastrun ./scripts/blue_gene_run.sh 128
 
 # Checks results of the latest test (can be used while running)
 results:
@@ -34,12 +35,27 @@ verbose: all
 kratos: all
 	mpirun -np 8 ./aco --graph_size 1024 --iterations 1000 > kratos.out
 
-clean:
-	-$(RM) *.o tex/*.aux tex/*.log tex/*.pdf
-
-fclean: clean
-	-$(RM) $(NAME)
-
 pdf:
 	make tex/make pdf
 	pdflatex tex/main.tex
+
+parse:
+	-$(RM) out/parsed.dat
+	find out/kratos -type f -exec ruby scripts/parse.rb {} \; >> out/parsed.dat
+	find out/bluegene -type f -exec ruby scripts/parse.rb {} \; >> out/parsed.dat
+
+compile:
+	ruby scripts/compile.rb out/parsed.dat graph/
+	gnuplot < scripts/plot.p
+
+graph:
+	scripts/
+
+clean:
+	-$(RM) *.o
+   	-$(RM) tex/*.aux
+   	-$(RM) tex/*.log
+   	-$(RM) tex/*.pdf
+
+fclean: clean
+	-$(RM) $(NAME)
