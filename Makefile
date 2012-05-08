@@ -1,6 +1,5 @@
 NAME=aco
 SRC=main.c parseargs.c hash.c graph.c ant.c comm.c queue.c timers.c
-SRC=$(SRC:^=src/)
 OBJ=$(SRC:.c=.o)
 CFLAGS=-Wall -g -O3 -rdynamic
 RM=rm -f
@@ -40,22 +39,20 @@ pdf:
 	pdflatex tex/main.tex
 
 parse:
-	-$(RM) out/parsed.dat
-	find out/kratos -type f -exec ruby scripts/parse.rb {} \; >> out/parsed.dat
-	find out/bluegene -type f -exec ruby scripts/parse.rb {} \; >> out/parsed.dat
+	-$(RM) out/results.dat
+	find out/kratos -type f -exec ruby scripts/parse.rb {} \; | sort >> out/parsed.dat
+	find out/bluegene -type f -exec ruby scripts/parse.rb {} \; | sort >> out/parsed.dat
 
 compile:
-	ruby scripts/compile.rb out/parsed.dat graph/
+	mkdir -p graph/png
+	ruby scripts/compile.rb out/results.dat graph/
 	gnuplot < scripts/plot.p
-
-graph:
-	scripts/
 
 clean:
 	-$(RM) *.o
-   	-$(RM) tex/*.aux
-   	-$(RM) tex/*.log
-   	-$(RM) tex/*.pdf
+	-$(RM) tex/*.aux
+	-$(RM) tex/*.log
+	-$(RM) tex/*.pdf
 
 fclean: clean
 	-$(RM) $(NAME)
